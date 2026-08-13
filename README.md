@@ -198,12 +198,31 @@ faceattend/
 
 ---
 
+## Deployment
+
+| Service | Platform | Notes |
+|---------|----------|-------|
+| Frontend (React PWA) | **Vercel** | Auto-deploys from  directory |
+| Backend API (Django) | **Render** | Web service — Daphne ASGI |
+| Celery Worker | **Render** | Background worker service |
+| PostgreSQL | **Render** | Managed database |
+| Redis | **Render** | Managed Redis instance |
+
+- Local development uses Docker Compose (all services in containers).
+-  in the root defines the full Render Blueprint.
+-  configures SPA routing, security headers, and asset caching.
+
+See [Deployment Guide](docs/development/deployment.md) for step-by-step instructions.
+
+---
+
 ## Documentation
 
 - [System Architecture](docs/architecture/system-overview.md)
 - [API Endpoints](docs/api/endpoints.md)
 - [Database Schema](docs/database/schema.md)
 - [Development Setup](docs/development/setup.md)
+- [Deployment Guide](docs/development/deployment.md)
 
 ---
 

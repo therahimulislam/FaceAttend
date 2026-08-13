@@ -1,0 +1,156 @@
+# =============================================================================
+# FaceAttend — Render Blueprint
+# https://render.com/docs/blueprint-spec
+#
+# Services:
+#   faceattend-api      — Django web service (ASGI / Daphne)
+#   faceattend-celery   — Celery background worker
+#   faceattend-db       — PostgreSQL 16 managed database
+#   faceattend-redis    — Redis managed instance
+#
+# Deploy:
+#   1. Push this repository to GitHub / GitLab.
+#   2. Go to https://dashboard.render.com/
+#   3. Click "New" → "Blueprint"
+#   4. Connect your repository.
+#   5. Render reads this file and creates all services automatically.
+#   6. Set the required environment variables marked as "sync: false" in the
+#      Render dashboard (they are intentionally not stored in this file).
+# =============================================================================
+
+databases:
+  - name: faceattend-db
+    databaseName: faceattend
+    user: faceattend_user
+    plan: free            # Change to "starter" or higher in production
+    region: oregon        # Change to your preferred region
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Django Web Service (ASGI — supports HTTP + WebSocket)
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: faceattend-api
+    runtime: python
+    region: oregon
+    plan: free            # Change to "starter" or higher in production
+    rootDir: backend
+    buildCommand: |
+      pip install --upgrade pip &&
+      pip install -r requirements/production.txt &&
+      python manage.py collectstatic --noinput &&
+      python manage.py migrate --noinput
+    startCommand: daphne -b 0.0.0.0 -p $PORT config.asgi:application
+    healthCheckPath: /api/v1/health/
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.production
+      - key: PYTHON_VERSION
+        value: "3.12.0"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: faceattend-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: faceattend-redis
+          type: redis
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          name: faceattend-redis
+          type: redis
+          property: connectionString
+      - key: CELERY_RESULT_BACKEND
+        fromService:
+          name: faceattend-redis
+          type: redis
+          property: connectionString
+      - key: DJANGO_CHANNELS_LAYER_URL
+        fromService:
+          name: faceattend-redis
+          type: redis
+          property: connectionString
+      # --- Set these manually in the Render dashboard ---
+      - key: SECRET_KEY
+        sync: false
+      - key: ALLOWED_HOSTS
+        sync: false       # e.g. faceattend-api.onrender.com,yourdomain.com
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false       # e.g. https://faceattend.vercel.app,https://yourdomain.com
+      - key: CAMPUS_LATITUDE
+        sync: false
+      - key: CAMPUS_LONGITUDE
+        sync: false
+      - key: CAMPUS_GEOFENCE_RADIUS_METERS
+        sync: false
+      - key: EMAIL_BACKEND
+        sync: false
+      - key: EMAIL_HOST
+        sync: false
+      - key: EMAIL_PORT
+        sync: false
+      - key: EMAIL_USE_TLS
+        sync: false
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
+      - key: DEFAULT_FROM_EMAIL
+        sync: false
+      - key: FACE_MODEL_VERSION
+        value: "v1"
+      - key: FACE_RECOGNITION_THRESHOLD
+        value: "0.6"
+      - key: ATTENDANCE_SESSION_DEFAULT_EXPIRY_MINUTES
+        value: "15"
+
+  # ---------------------------------------------------------------------------
+  # Celery Background Worker
+  # ---------------------------------------------------------------------------
+  - type: worker
+    name: faceattend-celery
+    runtime: python
+    region: oregon
+    plan: free
+    rootDir: backend
+    buildCommand: |
+      pip install --upgrade pip &&
+      pip install -r requirements/production.txt
+    startCommand: celery -A config worker --loglevel=info --concurrency=2
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.production
+      - key: PYTHON_VERSION
+        value: "3.12.0"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: faceattend-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: faceattend-redis
+          type: redis
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          name: faceattend-redis
+          type: redis
+          property: connectionString
+      - key: CELERY_RESULT_BACKEND
+        fromService:
+          name: faceattend-redis
+          type: redis
+          property: connectionString
+      - key: SECRET_KEY
+        sync: false
+
+  # ---------------------------------------------------------------------------
+  # Redis
+  # ---------------------------------------------------------------------------
+  - type: redis
+    name: faceattend-redis
+    region: oregon
+    plan: free            # Change to "starter" or higher in production
+    maxmemoryPolicy: allkeys-lru
