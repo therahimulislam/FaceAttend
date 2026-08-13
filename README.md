@@ -202,15 +202,16 @@ faceattend/
 
 | Service | Platform | Notes |
 |---------|----------|-------|
-| Frontend (React PWA) | **Vercel** | Auto-deploys from  directory |
+| Frontend (React PWA) | **Vercel** | Auto-deploys from `frontend/` directory |
 | Backend API (Django) | **Render** | Web service — Daphne ASGI |
 | Celery Worker | **Render** | Background worker service |
-| PostgreSQL | **Render** | Managed database |
+| PostgreSQL | **Supabase** | Managed PostgreSQL — external to Render |
 | Redis | **Render** | Managed Redis instance |
 
-- Local development uses Docker Compose (all services in containers).
--  in the root defines the full Render Blueprint.
--  configures SPA routing, security headers, and asset caching.
+- Local development uses Docker Compose (PostgreSQL runs in a local container).
+- `render.yaml` defines the Render Blueprint (web service, worker, Redis — no Render DB).
+- `DATABASE_URL` is set manually in Render using the Supabase connection string.
+- `frontend/vercel.json` configures SPA routing, security headers, and asset caching.
 
 See [Deployment Guide](docs/development/deployment.md) for step-by-step instructions.
 
