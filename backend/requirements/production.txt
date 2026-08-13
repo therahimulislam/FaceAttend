@@ -1,0 +1,10 @@
+# =============================================================================
+# FaceAttend — Production Requirements
+# =============================================================================
+-r base.txt
+
+# Production WSGI fallback
+gunicorn>=22.0,<23.0
+
+# Security
+django-ratelimit>=4.1

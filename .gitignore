@@ -143,3 +143,16 @@ captured_images/
 *.tmp
 *.orig
 .cache/
+
+# Backend virtualenv (local development)
+backend/.venv/
+
+# Dev SQLite (local non-Docker testing only)
+backend/db_dev.sqlite3
+
+# Frontend build
+frontend/dist/
+
+# Pytest cache
+backend/.pytest_cache/
+backend/pytest.ini
