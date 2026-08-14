@@ -29,16 +29,26 @@ export type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED";
 
 export interface Student {
   id: string;
-  user: User;
+  user_id: string;
+  email: string;
+  user_status: string;
   student_id: string;
   full_name: string;
   phone: string;
-  department: Department;
-  semester: Semester;
-  section: Section;
+  department: string | null;
+  department_display: string;
+  semester: string | null;
+  semester_display: string;
+  section: string | null;
+  section_display: string;
+  department_name: string;
+  semester_name: string;
+  section_name: string;
   approval_status: ApprovalStatus;
   approved_at: string | null;
+  rejection_reason: string;
   created_at: string;
+  updated_at: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -46,10 +56,16 @@ export interface Student {
 // ---------------------------------------------------------------------------
 export interface Faculty {
   id: string;
-  user: User;
+  user_id: string;
+  email: string;
+  user_status: string;
   employee_id: string;
   full_name: string;
-  department: Department;
+  phone: string;
+  department: string | null;
+  department_name: string | null;
+  designation: string;
+  is_hod: boolean;
   created_at: string;
 }
 

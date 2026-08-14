@@ -7,6 +7,7 @@ import type { UserRole } from "@/types";
 
 // Layouts
 import AuthLayout from "@/layouts/AuthLayout";
+import AppLayout from "@/layouts/AppLayout";
 
 // Public pages
 import LoginPage from "@/pages/LoginPage";
@@ -16,11 +17,23 @@ import PendingApprovalPage from "@/pages/PendingApprovalPage";
 import UnauthorizedPage from "@/pages/UnauthorizedPage";
 import NotFound from "@/pages/NotFound";
 
+// Admin pages
+import AdminDashboard from "@/pages/admin/AdminDashboard";
+import StudentsPage from "@/pages/admin/StudentsPage";
+import FacultyPage from "@/pages/admin/FacultyPage";
+import DepartmentsPage from "@/pages/admin/DepartmentsPage";
+
+// Student pages
+import StudentDashboard from "@/pages/student/StudentDashboard";
+
 /** Redirect authenticated users away from auth pages */
 function GuestOnly() {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  if (isAuthenticated) return <Navigate to="/" replace />;
-  return <Outlet />;
+  const { isAuthenticated, user } = useAuthStore();
+  if (!isAuthenticated) return <Outlet />;
+
+  // Redirect to appropriate dashboard
+  if (user?.role === "STUDENT") return <Navigate to="/student/dashboard" replace />;
+  return <Navigate to="/admin/dashboard" replace />;
 }
 
 /** Require authentication + optional role check */
@@ -52,21 +65,46 @@ export const router = createBrowserRouter([
   },
 
   // ---------------------------------------------------------------------------
-  // Authenticated routes
+  // Pending approval (authenticated student, any approval status)
   // ---------------------------------------------------------------------------
   {
-    element: <RequireAuth />,
+    element: <RequireAuth allowedRoles={["STUDENT"]} />,
     children: [
       { path: "/pending-approval", element: <PendingApprovalPage /> },
+    ],
+  },
 
-      // Student dashboard (Phase 7)
-      // { path: "/student/*", element: <StudentLayout />, ... }
+  // ---------------------------------------------------------------------------
+  // Admin routes (DEPARTMENT_ADMIN + SUPER_ADMIN)
+  // ---------------------------------------------------------------------------
+  {
+    element: <RequireAuth allowedRoles={["DEPARTMENT_ADMIN", "SUPER_ADMIN"]} />,
+    children: [
+      {
+        element: <AppLayout />,
+        children: [
+          { path: "/admin/dashboard",   element: <AdminDashboard /> },
+          { path: "/admin/students",    element: <StudentsPage /> },
+          { path: "/admin/faculty",     element: <FacultyPage /> },
+          { path: "/admin/departments", element: <DepartmentsPage /> },
+        ],
+      },
+    ],
+  },
 
-      // Faculty dashboard (Phase 6)
-      // { path: "/faculty/*", element: <FacultyLayout />, ... }
-
-      // Admin dashboard (Phase 11+)
-      // { path: "/admin/*", element: <AdminLayout />, ... }
+  // ---------------------------------------------------------------------------
+  // Student routes
+  // ---------------------------------------------------------------------------
+  {
+    element: <RequireAuth allowedRoles={["STUDENT"]} />,
+    children: [
+      {
+        element: <AppLayout />,
+        children: [
+          { path: "/student/dashboard", element: <StudentDashboard /> },
+          // Phase 7+: attendance marking, face enrollment, etc.
+        ],
+      },
     ],
   },
 

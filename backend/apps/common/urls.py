@@ -12,14 +12,14 @@ urlpatterns = [
     path("auth/", include("apps.accounts.urls")),
 
     # Students (Phase 3)
-    # path("students/", include("apps.students.urls")),
+    path("students/", include("apps.students.urls")),
 
-    # Faculty (Phase 4)
-    # path("faculty/", include("apps.faculty.urls")),
+    # Faculty (Phase 3)
+    path("faculty/", include("apps.faculty.urls")),
 
-    # Departments / Academic (Phase 4)
-    # path("departments/", include("apps.departments.urls")),
-    # path("academics/", include("apps.academics.urls")),
+    # Departments / Academic (Phase 3)
+    path("departments/", include("apps.departments.urls")),
+    path("academics/", include("apps.academics.urls")),
 
     # Timetable (Phase 5)
     # path("timetable/", include("apps.timetable.urls")),

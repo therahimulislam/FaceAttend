@@ -43,3 +43,7 @@ class StandardPageNumberPagination(PageNumberPagination):
                 },
             },
         }
+
+
+# Alias — use this in all views for brevity
+StandardPagination = StandardPageNumberPagination

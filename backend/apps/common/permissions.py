@@ -80,3 +80,7 @@ class IsAdminUser(BasePermission):
             and request.user.is_authenticated
             and request.user.role in ("DEPARTMENT_ADMIN", "SUPER_ADMIN")
         )
+
+
+# Alias for semantic clarity in views that require admin-level write access
+IsSuperAdminOrDeptAdmin = IsAdminUser
