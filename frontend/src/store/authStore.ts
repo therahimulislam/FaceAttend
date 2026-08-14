@@ -47,8 +47,8 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: "faceattend-auth",
-      // Only persist non-sensitive state (not tokens — those go in localStorage directly)
-      partialize: (state) => ({ user: state.user }),
+      // Only persist user data to session storage — tokens stay in localStorage
+      partialize: (state) => ({ user: state.user, isAuthenticated: state.isAuthenticated }),
     }
   )
 );

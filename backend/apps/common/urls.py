@@ -8,8 +8,8 @@ urlpatterns = [
     # Health check (public — used by Render)
     path("health/", include("apps.common.health_urls")),
 
-    # Authentication (Phase 2)
-    # path("auth/", include("apps.accounts.urls")),
+    # Authentication
+    path("auth/", include("apps.accounts.urls")),
 
     # Students (Phase 3)
     # path("students/", include("apps.students.urls")),
