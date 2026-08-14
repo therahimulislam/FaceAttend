@@ -35,6 +35,8 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Students",     to: "/admin/students",    icon: GraduationCap,   roles: ["SUPER_ADMIN", "DEPARTMENT_ADMIN"] },
   { label: "Faculty",      to: "/admin/faculty",     icon: Users,           roles: ["SUPER_ADMIN", "DEPARTMENT_ADMIN"] },
   { label: "Departments",  to: "/admin/departments", icon: BookOpen,        roles: ["SUPER_ADMIN", "DEPARTMENT_ADMIN"] },
+  { label: "Subjects",     to: "/admin/subjects",    icon: GraduationCap,   roles: ["SUPER_ADMIN", "DEPARTMENT_ADMIN"] },
+  { label: "Rooms",        to: "/admin/rooms",       icon: BarChart3,       roles: ["SUPER_ADMIN", "DEPARTMENT_ADMIN"] },
   { label: "Timetable",    to: "/admin/timetable",   icon: Calendar,        roles: ["SUPER_ADMIN", "DEPARTMENT_ADMIN", "FACULTY"] },
   { label: "Attendance",   to: "/faculty/attendance", icon: CheckSquare,   roles: ["FACULTY"] },
   { label: "Reports",      to: "/admin/reports",     icon: BarChart3,       roles: ["SUPER_ADMIN", "DEPARTMENT_ADMIN", "FACULTY"] },

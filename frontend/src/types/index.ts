@@ -78,6 +78,9 @@ export interface Department {
   code: string;
   description: string;
   status: "ACTIVE" | "INACTIVE";
+  student_count: number;
+  faculty_count: number;
+  created_at: string;
 }
 
 export interface Semester {
@@ -113,7 +116,13 @@ export interface Room {
   building: string;
   floor: number;
   capacity: number;
-  status: "ACTIVE" | "INACTIVE";
+  latitude: string | null;
+  longitude: string | null;
+  geofence_radius: number;
+  has_gps: boolean;
+  status: "ACTIVE" | "INACTIVE" | "UNDER_MAINTENANCE";
+  created_at: string;
+  updated_at: string;
 }
 
 // ---------------------------------------------------------------------------

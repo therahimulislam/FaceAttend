@@ -34,3 +34,44 @@ class SemesterMinimalSerializer(serializers.ModelSerializer):
     class Meta:
         model = Semester
         fields = ("id", "name", "number", "status", "is_current")
+
+
+class SubjectSerializer(serializers.ModelSerializer):
+    from rest_framework import serializers as _s
+    department_name = _s.CharField(source="department.name", read_only=True)
+    department_code = _s.CharField(source="department.code", read_only=True)
+
+    class Meta:
+        from .models import Subject
+        model = Subject
+        fields = ("id", "code", "name", "department", "department_name",
+                  "department_code", "credits", "hours_per_week", "status",
+                  "created_at", "updated_at")
+        read_only_fields = ("id", "department_name", "department_code",
+                            "created_at", "updated_at")
+
+
+class SubjectMinimalSerializer(serializers.ModelSerializer):
+    class Meta:
+        from .models import Subject
+        model = Subject
+        fields = ("id", "code", "name", "credits", "status")
+
+
+class RoomSerializer(serializers.ModelSerializer):
+    has_gps = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        from .models import Room
+        model = Room
+        fields = ("id", "name", "building", "floor", "capacity",
+                  "latitude", "longitude", "geofence_radius",
+                  "has_gps", "status", "created_at", "updated_at")
+        read_only_fields = ("id", "has_gps", "created_at", "updated_at")
+
+
+class RoomMinimalSerializer(serializers.ModelSerializer):
+    class Meta:
+        from .models import Room
+        model = Room
+        fields = ("id", "name", "building", "floor", "capacity", "status")

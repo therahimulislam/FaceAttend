@@ -22,6 +22,8 @@ import AdminDashboard from "@/pages/admin/AdminDashboard";
 import StudentsPage from "@/pages/admin/StudentsPage";
 import FacultyPage from "@/pages/admin/FacultyPage";
 import DepartmentsPage from "@/pages/admin/DepartmentsPage";
+import SubjectsPage from "@/pages/admin/SubjectsPage";
+import RoomsPage from "@/pages/admin/RoomsPage";
 
 // Student pages
 import StudentDashboard from "@/pages/student/StudentDashboard";
@@ -87,6 +89,8 @@ export const router = createBrowserRouter([
           { path: "/admin/students",    element: <StudentsPage /> },
           { path: "/admin/faculty",     element: <FacultyPage /> },
           { path: "/admin/departments", element: <DepartmentsPage /> },
+          { path: "/admin/subjects",    element: <SubjectsPage /> },
+          { path: "/admin/rooms",       element: <RoomsPage /> },
         ],
       },
     ],

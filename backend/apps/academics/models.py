@@ -100,3 +100,107 @@ class Section(models.Model):
     @property
     def department(self):
         return self.semester.department
+
+
+# ---------------------------------------------------------------------------
+# Subject (Phase 4)
+# ---------------------------------------------------------------------------
+
+class SubjectStatus(models.TextChoices):
+    ACTIVE = "ACTIVE", "Active"
+    INACTIVE = "INACTIVE", "Inactive"
+
+
+class Subject(models.Model):
+    """
+    An academic subject taught in a department.
+    Linked to timetable entries in Phase 5.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    code = models.CharField(
+        max_length=20, unique=True, db_index=True,
+        help_text="Subject code, e.g. 'CS301', 'MA201'."
+    )
+    name = models.CharField(max_length=150)
+    department = models.ForeignKey(
+        "departments.Department",
+        on_delete=models.CASCADE,
+        related_name="subjects",
+    )
+    credits = models.PositiveSmallIntegerField(default=3)
+    hours_per_week = models.PositiveSmallIntegerField(
+        default=3,
+        help_text="Number of lecture hours per week.",
+    )
+    status = models.CharField(
+        max_length=20, choices=SubjectStatus.choices,
+        default=SubjectStatus.ACTIVE, db_index=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "subjects"
+        ordering = ["department", "code"]
+        unique_together = [("department", "name")]
+
+    def __str__(self):
+        return f"{self.code} — {self.name}"
+
+
+# ---------------------------------------------------------------------------
+# Room (Phase 4)
+# ---------------------------------------------------------------------------
+
+class RoomStatus(models.TextChoices):
+    ACTIVE = "ACTIVE", "Active"
+    INACTIVE = "INACTIVE", "Inactive"
+    UNDER_MAINTENANCE = "UNDER_MAINTENANCE", "Under Maintenance"
+
+
+class Room(models.Model):
+    """
+    A physical classroom/lab used in timetable entries.
+    Stores GPS coordinates for geofence-based attendance verification (Phase 8).
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=100, unique=True,
+                            help_text="e.g. 'CS-101', 'Lab-3', 'Seminar Hall'")
+    building = models.CharField(max_length=100, blank=True)
+    floor = models.SmallIntegerField(default=0,
+                                     help_text="0 = ground floor, negative = basement")
+    capacity = models.PositiveSmallIntegerField(default=60)
+
+    # GPS coordinates for geofence attendance (Phase 8)
+    latitude = models.DecimalField(
+        max_digits=10, decimal_places=7,
+        null=True, blank=True,
+        help_text="Center latitude of the room/building (WGS84).",
+    )
+    longitude = models.DecimalField(
+        max_digits=10, decimal_places=7,
+        null=True, blank=True,
+        help_text="Center longitude of the room/building (WGS84).",
+    )
+    geofence_radius = models.PositiveSmallIntegerField(
+        default=50,
+        help_text="Geofence radius in meters. Students must be within this range to mark attendance.",
+    )
+
+    status = models.CharField(
+        max_length=30, choices=RoomStatus.choices,
+        default=RoomStatus.ACTIVE, db_index=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "rooms"
+        ordering = ["building", "name"]
+
+    def __str__(self):
+        return f"{self.name} ({self.building})" if self.building else self.name
+
+    @property
+    def has_gps(self):
+        return self.latitude is not None and self.longitude is not None
