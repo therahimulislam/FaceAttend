@@ -8,13 +8,13 @@
  *
  * History tab shows personal attendance records + per-subject summary.
  */
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import {
   QrCode, MapPin, CheckCircle2, XCircle, Clock3,
   RefreshCw, ChevronRight, BookOpen, AlertCircle,
-  Users, Navigation, Loader2, ArrowLeft,
+  Users, Navigation, Loader2, ArrowLeft, Scan, Camera,
 } from "lucide-react";
 
 import {
@@ -172,14 +172,29 @@ function SessionPreviewStep({
     radius: number;
     exceededBy: number;
   } | null>(null);
+  const [faceMismatchError, setFaceMismatchError] = useState<{
+    message: string;
+    distance: number;
+  } | null>(null);
+
+  // Face image capture state (optional)
+  const [faceImage, setFaceImage] = useState<File | null>(null);
+  const [facePreview, setFacePreview] = useState<string | null>(null);
+  const faceFileRef = useRef<HTMLInputElement>(null);
+
+  const handleFaceFile = useCallback((file: File) => {
+    setFaceImage(file);
+    setFacePreview(URL.createObjectURL(file));
+    setFaceMismatchError(null);
+  }, []);
 
   const roomHasGps = session.room_has_gps ?? false;
   const geofenceRadius = session.room_geofence_radius;
-  const gpsRequired = roomHasGps;  // GPS location sharing strongly recommended
+  const gpsRequired = roomHasGps;
 
   const submitMutation = useMutation({
     mutationFn: () =>
-      attendanceApi.submitAttendance(session.id, coords ?? undefined),
+      attendanceApi.submitAttendance(session.id, coords ?? undefined, faceImage ?? undefined),
     onSuccess: (record) => onSuccess(record),
     onError: (err) => {
       if (axios.isAxiosError(err)) {
@@ -191,6 +206,13 @@ function SessionPreviewStep({
             radius: data.errors?.allowed_radius ?? 0,
             exceededBy: data.errors?.exceeded_by ?? 0,
           });
+        } else if (data?.code === "FACE_MISMATCH") {
+          setFaceMismatchError({
+            message: data.message,
+            distance: data.errors?.distance ?? 0,
+          });
+          setFaceImage(null);
+          setFacePreview(null);
         } else {
           setSubmitError(data?.message ?? "Failed to submit attendance.");
         }
@@ -298,6 +320,77 @@ function SessionPreviewStep({
         )}
       </div>
 
+      {/* Face Verification Section (Phase 10) */}
+      <div className="rounded-xl bg-white/3 border border-white/8 p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Scan size={14} className="text-slate-400" />
+          <span className="text-slate-300 text-sm font-medium">Face Verification</span>
+          <span className="text-slate-600 text-xs">(Optional)</span>
+          {faceImage && (
+            <span className="ml-auto text-emerald-400 text-xs flex items-center gap-1">
+              <CheckCircle2 size={11} /> Ready
+            </span>
+          )}
+        </div>
+
+        {facePreview ? (
+          <div className="flex items-center gap-3">
+            <img
+              src={facePreview}
+              className="w-14 h-14 rounded-lg object-cover border border-white/10"
+              alt="Face capture"
+            />
+            <div className="flex-1">
+              <p className="text-slate-300 text-xs">Face captured</p>
+              <button
+                className="text-slate-500 hover:text-white text-xs mt-0.5 transition-colors"
+                onClick={() => { setFaceImage(null); setFacePreview(null); }}
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-slate-500 text-xs">
+              Take a selfie to verify your identity with face recognition.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                size="sm" variant="outline"
+                className="flex-1 border-white/10 text-slate-300 hover:bg-white/5"
+                onClick={() => faceFileRef.current?.click()}
+              >
+                <Camera size={13} /> Upload Photo
+              </Button>
+            </div>
+            <input
+              ref={faceFileRef}
+              type="file"
+              accept="image/jpeg,image/png"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleFaceFile(f);
+              }}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Face mismatch error */}
+      {faceMismatchError && (
+        <div className="rounded-lg bg-red-950/40 border border-red-800/40 p-4 space-y-2">
+          <div className="flex items-center gap-2 text-red-400 font-semibold text-sm">
+            <AlertCircle size={14} /> Face Verification Failed
+          </div>
+          <p className="text-red-300 text-xs">{faceMismatchError.message}</p>
+          <p className="text-slate-500 text-xs">
+            Please retake your photo with better lighting and try again.
+          </p>
+        </div>
+      )}
+
       {/* Geofence violation error */}
       {geofenceError && (
         <div className="rounded-lg bg-red-950/40 border border-red-800/40 p-4 space-y-2">
@@ -335,7 +428,7 @@ function SessionPreviewStep({
       </Button>
 
       <p className="text-center text-slate-600 text-xs">
-        Location sharing is optional but recommended for verification.
+        Location and face sharing are optional but recommended for verification.
       </p>
     </div>
   );
@@ -381,6 +474,10 @@ function SuccessStep({ record, onDone }: { record: AttendanceRecord; onDone: () 
         <div className="flex justify-between">
           <span className="text-slate-500">GPS</span>
           <span className="text-slate-300">{record.gps_verified ? "✅ Verified" : "Not captured"}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-slate-500">Face</span>
+          <span className="text-slate-300">{record.face_verified ? "✅ Verified" : "Not verified"}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-slate-500">Time</span>

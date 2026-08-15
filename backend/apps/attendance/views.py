@@ -22,6 +22,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from apps.common.gps import check_geofence
+from apps.face.engine import face_engine, FaceEngineError
+from apps.face.models import FaceEnrollment, EnrollmentStatus as FaceEnrollmentStatus
 from apps.common.pagination import StandardPagination
 from apps.common.permissions import IsAdminUser, IsFacultyOrAdmin, IsStudent
 from apps.common.responses import success_response, error_response
@@ -284,14 +286,16 @@ class AttendanceSessionViewSet(viewsets.ModelViewSet):
                 status_code=status.HTTP_403_FORBIDDEN,
             )
 
-        # Parse GPS payload
+        # Parse multipart payload (GPS + optional face image)
         ser = StudentSubmitSerializer(data=request.data)
         if not ser.is_valid():
             return error_response(errors=ser.errors)
 
         lat = ser.validated_data.get("latitude")
         lon = ser.validated_data.get("longitude")
+        face_image_file = ser.validated_data.get("face_image")
         has_gps = lat is not None and lon is not None
+        has_face = face_image_file is not None
 
         # ---- Phase 8: Geofence Validation ----
         gps_verified = False
@@ -335,6 +339,59 @@ class AttendanceSessionViewSet(viewsets.ModelViewSet):
             # No GPS supplied
             verification_method = "MANUAL"
 
+        # ---- Phase 10: Face Recognition ----
+        face_verified = False
+        face_distance = None   # cosine distance returned to client for transparency
+        face_error = None
+
+        if has_face:
+            try:
+                enrollment = getattr(student, "face_enrollment", None)
+                if enrollment and enrollment.status == FaceEnrollmentStatus.ACTIVE and enrollment.embedding:
+                    # Extract embedding from live photo
+                    image_bytes = face_image_file.read()
+                    live_embedding = face_engine.embed(image_bytes)
+                    face_distance = round(face_engine.distance(live_embedding, enrollment.embedding), 4)
+                    face_verified = face_engine.matches(live_embedding, enrollment.embedding)
+                    if not face_verified:
+                        return error_response(
+                            message=(
+                                "Face verification failed. The face in the photo does not match "
+                                "your enrolled face. Please try again with better lighting."
+                            ),
+                            code="FACE_MISMATCH",
+                            errors={
+                                "distance": face_distance,
+                                "threshold": face_engine.THRESHOLD,
+                            },
+                            status_code=status.HTTP_409_CONFLICT,
+                        )
+                else:
+                    # Student has no active enrollment — treat face as not provided
+                    face_error = "No active face enrollment found. Submitting without face verification."
+                    has_face = False
+            except Exception as exc:
+                if isinstance(exc, FaceEngineError):
+                    return error_response(
+                        message=str(exc),
+                        code="FACE_DETECTION_FAILED",
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    )
+                # Non-face error: log and continue without face verification
+                import logging
+                logging.getLogger(__name__).exception("Face recognition error (non-fatal): %s", exc)
+                face_error = "Face recognition temporarily unavailable."
+
+        # ---- Determine combined verification method ----
+        if face_verified and gps_verified:
+            final_method = "FACE_GPS"
+        elif face_verified:
+            final_method = "FACE"
+        elif gps_verified:
+            final_method = "GPS"
+        else:
+            final_method = verification_method  # GPS (no room coords) or MANUAL
+
         # ---- Determine LATE status ----
         now = timezone.now()
         grace_minutes = 15
@@ -349,8 +406,9 @@ class AttendanceSessionViewSet(viewsets.ModelViewSet):
             student=student,
             defaults={
                 "status": mark_status,
-                "verification_method": verification_method,
+                "verification_method": final_method,
                 "gps_verified": gps_verified,
+                "face_verified": face_verified,
                 "marked_by": None,  # self-marked
                 "latitude": lat,
                 "longitude": lon,
@@ -358,8 +416,17 @@ class AttendanceSessionViewSet(viewsets.ModelViewSet):
         )
 
         response_data = AttendanceRecordSerializer(record).data
+        # Append transparency fields
+        if face_distance is not None:
+            response_data["_face_score"] = {
+                "distance": face_distance,
+                "threshold": face_engine.THRESHOLD,
+                "verified": face_verified,
+            }
         if geofence_skipped:
             response_data["_geofence_warning"] = "Room has no GPS coordinates. Location not verified."
+        if face_error:
+            response_data["_face_warning"] = face_error
 
         return success_response(
             data=response_data,

@@ -152,11 +152,28 @@ export const attendanceApi = {
     return res.data.data;
   },
 
-  /** Student self-mark attendance. */
+  /** Student self-mark attendance (Phase 7+). GPS optional, face optional (Phase 10). */
   submitAttendance: async (
     sessionId: string,
-    gps?: { latitude: string; longitude: string }
+    gps?: { latitude: string; longitude: string },
+    faceImage?: File,
   ): Promise<AttendanceRecord> => {
+    // If face image provided, send as multipart/form-data
+    if (faceImage) {
+      const form = new FormData();
+      if (gps) {
+        form.append("latitude", gps.latitude);
+        form.append("longitude", gps.longitude);
+      }
+      form.append("face_image", faceImage);
+      const res = await api.post<{ success: boolean; data: AttendanceRecord }>(
+        `/attendance/sessions/${sessionId}/submit/`,
+        form,
+        { headers: { "Content-Type": "multipart/form-data" } },
+      );
+      return res.data.data;
+    }
+    // JSON submit (GPS only or no verification)
     const res = await api.post<{ success: boolean; data: AttendanceRecord }>(
       `/attendance/sessions/${sessionId}/submit/`,
       gps ?? {}

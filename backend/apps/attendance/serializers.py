@@ -148,7 +148,8 @@ class StartSessionSerializer(serializers.Serializer):
 class StudentSubmitSerializer(serializers.Serializer):
     """
     Payload from a student when self-marking attendance.
-    GPS coordinates are optional (required in Phase 8 with geofence enforcement).
+    GPS coordinates are optional (enforced by Phase 8 geofence if room has GPS).
+    face_image is optional (used in Phase 10 face recognition if student enrolled).
     """
     latitude = serializers.DecimalField(
         max_digits=10, decimal_places=7,
@@ -157,6 +158,11 @@ class StudentSubmitSerializer(serializers.Serializer):
     longitude = serializers.DecimalField(
         max_digits=10, decimal_places=7,
         required=False, allow_null=True,
+    )
+    # Phase 10: optional live face photo for biometric verification
+    face_image = serializers.ImageField(
+        required=False, allow_null=True,
+        help_text="Live face photo (JPEG/PNG). Required when face verification is requested.",
     )
 
 
