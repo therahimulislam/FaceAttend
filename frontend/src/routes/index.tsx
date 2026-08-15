@@ -28,6 +28,7 @@ import AdminTimetablePage from "@/pages/admin/TimetablePage";
 
 // Faculty pages
 import FacultyTimetablePage from "@/pages/faculty/TimetablePage";
+import FacultyAttendancePage from "@/pages/faculty/AttendancePage";
 
 // Student pages
 import StudentDashboard from "@/pages/student/StudentDashboard";
@@ -110,7 +111,8 @@ export const router = createBrowserRouter([
       {
         element: <AppLayout />,
         children: [
-          { path: "/faculty/timetable", element: <FacultyTimetablePage /> },
+          { path: "/faculty/timetable",  element: <FacultyTimetablePage /> },
+          { path: "/faculty/attendance", element: <FacultyAttendancePage /> },
         ],
       },
     ],

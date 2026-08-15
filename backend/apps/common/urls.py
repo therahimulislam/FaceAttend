@@ -25,7 +25,7 @@ urlpatterns = [
     path("timetable/", include("apps.timetable.urls")),
 
     # Attendance (Phase 6+)
-    # path("attendance/", include("apps.attendance.urls")),
+    path("attendance/", include("apps.attendance.urls")),
 
     # Face Verification (Phase 9+)
     # path("face/", include("apps.verification.urls")),
