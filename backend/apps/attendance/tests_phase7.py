@@ -108,7 +108,9 @@ class StudentSubmitTest(TestCase):
         )
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
         body = res.json()
-        self.assertEqual(body["data"]["gps_verified"], True)
+        # Phase 8: gps_verified=False when room has no GPS coordinates.
+        # GPS captured but geofence skipped — method is still GPS.
+        self.assertEqual(body["data"]["gps_verified"], False)
         self.assertEqual(body["data"]["verification_method"], "GPS")
 
     def test_duplicate_submit_is_idempotent(self):
