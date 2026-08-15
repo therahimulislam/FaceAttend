@@ -20,13 +20,13 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
         fields = (
             "id", "session", "student", "student_name", "student_id",
             "status", "verification_method",
-            "face_verified", "gps_verified",
+            "face_verified", "gps_verified", "liveness_verified",
             "marked_at", "marked_by", "marked_by_email",
             "latitude", "longitude",
             "rejection_reason", "created_at", "updated_at",
         )
         read_only_fields = (
-            "id", "marked_at", "face_verified", "gps_verified",
+            "id", "marked_at", "face_verified", "gps_verified", "liveness_verified",
             "student_name", "student_id", "marked_by_email",
             "created_at", "updated_at",
         )
@@ -164,6 +164,11 @@ class StudentSubmitSerializer(serializers.Serializer):
         required=False, allow_null=True,
         help_text="Live face photo (JPEG/PNG). Required when face verification is requested.",
     )
+    # Phase 11: optional liveness challenge ID (from /face/liveness/verify/)
+    liveness_challenge_id = serializers.UUIDField(
+        required=False, allow_null=True,
+        help_text="UUID of a passed LivenessChallenge. Enables liveness_verified=True on the record.",
+    )
 
 
 class MyAttendanceRecordSerializer(serializers.ModelSerializer):
@@ -182,7 +187,7 @@ class MyAttendanceRecordSerializer(serializers.ModelSerializer):
             "subject_code", "subject_name",
             "faculty_name", "section_name",
             "status", "verification_method",
-            "face_verified", "gps_verified",
+            "face_verified", "gps_verified", "liveness_verified",
             "marked_at", "rejection_reason",
             "created_at",
         )

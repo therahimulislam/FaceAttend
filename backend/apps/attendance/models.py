@@ -235,6 +235,10 @@ class AttendanceRecord(models.Model):
     )
     face_verified = models.BooleanField(default=False)
     gps_verified = models.BooleanField(default=False)
+    liveness_verified = models.BooleanField(
+        default=False,
+        help_text="True if the student passed the liveness challenge (Phase 11).",
+    )
 
     marked_at = models.DateTimeField(default=timezone.now)
     marked_by = models.ForeignKey(
