@@ -24,6 +24,10 @@ import FacultyPage from "@/pages/admin/FacultyPage";
 import DepartmentsPage from "@/pages/admin/DepartmentsPage";
 import SubjectsPage from "@/pages/admin/SubjectsPage";
 import RoomsPage from "@/pages/admin/RoomsPage";
+import AdminTimetablePage from "@/pages/admin/TimetablePage";
+
+// Faculty pages
+import FacultyTimetablePage from "@/pages/faculty/TimetablePage";
 
 // Student pages
 import StudentDashboard from "@/pages/student/StudentDashboard";
@@ -91,6 +95,22 @@ export const router = createBrowserRouter([
           { path: "/admin/departments", element: <DepartmentsPage /> },
           { path: "/admin/subjects",    element: <SubjectsPage /> },
           { path: "/admin/rooms",       element: <RoomsPage /> },
+          { path: "/admin/timetable",   element: <AdminTimetablePage /> },
+        ],
+      },
+    ],
+  },
+
+  // ---------------------------------------------------------------------------
+  // Faculty routes
+  // ---------------------------------------------------------------------------
+  {
+    element: <RequireAuth allowedRoles={["FACULTY"]} />,
+    children: [
+      {
+        element: <AppLayout />,
+        children: [
+          { path: "/faculty/timetable", element: <FacultyTimetablePage /> },
         ],
       },
     ],

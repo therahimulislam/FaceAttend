@@ -22,7 +22,7 @@ urlpatterns = [
     path("academics/", include("apps.academics.urls")),
 
     # Timetable (Phase 5)
-    # path("timetable/", include("apps.timetable.urls")),
+    path("timetable/", include("apps.timetable.urls")),
 
     # Attendance (Phase 6+)
     # path("attendance/", include("apps.attendance.urls")),
