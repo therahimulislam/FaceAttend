@@ -166,6 +166,16 @@ function SessionPreviewStep({
 }) {
   const { gpsState, coords, requestGPS } = useGPS();
   const [submitError, setSubmitError] = useState("");
+  const [geofenceError, setGeofenceError] = useState<{
+    message: string;
+    distance: number;
+    radius: number;
+    exceededBy: number;
+  } | null>(null);
+
+  const roomHasGps = session.room_has_gps ?? false;
+  const geofenceRadius = session.room_geofence_radius;
+  const gpsRequired = roomHasGps;  // GPS location sharing strongly recommended
 
   const submitMutation = useMutation({
     mutationFn: () =>
@@ -173,8 +183,17 @@ function SessionPreviewStep({
     onSuccess: (record) => onSuccess(record),
     onError: (err) => {
       if (axios.isAxiosError(err)) {
-        const msg = err.response?.data?.message ?? "Failed to submit attendance.";
-        setSubmitError(msg);
+        const data = err.response?.data;
+        if (data?.code === "GEOFENCE_VIOLATION") {
+          setGeofenceError({
+            message: data.message,
+            distance: data.errors?.distance_meters ?? 0,
+            radius: data.errors?.allowed_radius ?? 0,
+            exceededBy: data.errors?.exceeded_by ?? 0,
+          });
+        } else {
+          setSubmitError(data?.message ?? "Failed to submit attendance.");
+        }
       }
     },
   });
@@ -205,9 +224,16 @@ function SessionPreviewStep({
             <span>Section {session.section_name} · {session.semester_name}</span>
           </div>
           {session.room_name && (
-            <div className="flex items-center gap-2 text-slate-400">
-              <MapPin size={13} />
-              <span>{session.room_name}</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-slate-400">
+                <MapPin size={13} />
+                <span>{session.room_name}</span>
+              </div>
+              {roomHasGps && geofenceRadius && (
+                <span className="text-xs bg-emerald-950/60 text-emerald-400 border border-emerald-800/40 px-2 py-0.5 rounded-full">
+                  📍 {geofenceRadius}m radius
+                </span>
+              )}
             </div>
           )}
           {session.valid_until && (
@@ -222,12 +248,15 @@ function SessionPreviewStep({
         </div>
       </div>
 
-      {/* GPS */}
+      {/* GPS Section */}
       <div className="rounded-xl bg-white/3 border border-white/8 p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Navigation size={14} className="text-slate-400" />
-            <span className="text-slate-300 text-sm font-medium">Location Verification</span>
+            <span className="text-slate-300 text-sm font-medium">
+              Location Verification
+              {gpsRequired && <span className="text-amber-400 text-xs ml-1">(Recommended)</span>}
+            </span>
           </div>
           {gpsState === "granted" && (
             <span className="text-emerald-400 text-xs flex items-center gap-1">
@@ -261,11 +290,31 @@ function SessionPreviewStep({
         )}
         {gpsState === "denied" && (
           <p className="text-amber-400/70 text-xs">
-            Location access denied. Attendance will be marked without GPS verification.
+            Location access denied.{" "}
+            {gpsRequired
+              ? "GPS verification will be skipped, but this room enforces geofencing — submitting may be rejected."
+              : "Attendance will be marked without GPS verification."}
           </p>
         )}
       </div>
 
+      {/* Geofence violation error */}
+      {geofenceError && (
+        <div className="rounded-lg bg-red-950/40 border border-red-800/40 p-4 space-y-2">
+          <div className="flex items-center gap-2 text-red-400 font-semibold text-sm">
+            <AlertCircle size={14} /> You're outside the classroom
+          </div>
+          <p className="text-red-300 text-xs">{geofenceError.message}</p>
+          <div className="flex items-center gap-4 text-xs text-slate-500 pt-1">
+            <span>📍 You: {geofenceError.distance.toFixed(0)}m away</span>
+            <span>✅ Allowed: {geofenceError.radius}m</span>
+            <span>⚠️ Over by: {geofenceError.exceededBy.toFixed(0)}m</span>
+          </div>
+          <p className="text-slate-600 text-xs">Move closer to {session.room_name ?? "the classroom"} and try again.</p>
+        </div>
+      )}
+
+      {/* General submit error */}
       {submitError && (
         <div className="flex items-center gap-2 text-red-400 text-sm bg-red-950/30 border border-red-800/40 rounded-lg px-3 py-2">
           <AlertCircle size={14} />

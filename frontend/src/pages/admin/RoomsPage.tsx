@@ -9,7 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
   Plus, Search, RefreshCw, MapPin, Edit2, Trash2,
-  Loader2, DoorOpen, Wifi, WifiOff,
+  Loader2, DoorOpen, Navigation, CheckCircle2,
 } from "lucide-react";
 
 import { roomsApi, type Room } from "@/features/academics/api";
@@ -144,17 +144,37 @@ function RoomModal({
             </div>
           </div>
 
-          {/* GPS Section */}
+          {/* GPS Geofence Section */}
           <div className="rounded-lg bg-white/3 border border-white/8 p-4 space-y-3">
-            <p className="text-slate-300 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
-              <MapPin size={12} /> GPS Geofence (Phase 8)
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-slate-300 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                <MapPin size={12} /> GPS Geofence
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!navigator.geolocation) return;
+                  navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                      setValue("latitude", String(pos.coords.latitude.toFixed(7)));
+                      setValue("longitude", String(pos.coords.longitude.toFixed(7)));
+                    },
+                    () => {},
+                    { enableHighAccuracy: true, timeout: 6000 },
+                  );
+                }}
+                className="flex items-center gap-1 text-xs text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded px-2 py-1 transition-colors"
+              >
+                <Navigation size={11} /> Use My Location
+              </button>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-slate-400 text-xs">Latitude</Label>
                 <Input
                   placeholder="11.0168"
-                  className="bg-white/5 border-white/10 text-white placeholder:text-slate-600 h-9 text-sm"
+                  className="bg-white/5 border-white/10 text-white placeholder:text-slate-600 h-9 text-sm font-mono"
                   {...register("latitude")}
                 />
               </div>
@@ -162,21 +182,31 @@ function RoomModal({
                 <Label className="text-slate-400 text-xs">Longitude</Label>
                 <Input
                   placeholder="76.9558"
-                  className="bg-white/5 border-white/10 text-white placeholder:text-slate-600 h-9 text-sm"
+                  className="bg-white/5 border-white/10 text-white placeholder:text-slate-600 h-9 text-sm font-mono"
                   {...register("longitude")}
                 />
               </div>
             </div>
+
             <div className="space-y-1.5">
               <Label className="text-slate-400 text-xs">Geofence Radius (meters)</Label>
-              <Input
-                type="number"
-                min={10}
-                max={500}
-                className="bg-white/5 border-white/10 text-white h-9 text-sm"
-                {...register("geofence_radius")}
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  type="range"
+                  min={10} max={500} step={10}
+                  className="flex-1 accent-white"
+                  {...register("geofence_radius")}
+                />
+                <span className="text-white text-sm font-mono w-12 text-right">{watch("geofence_radius")}m</span>
+              </div>
+              <p className="text-slate-600 text-xs">Students must be within this distance to mark attendance. Leave lat/lon empty to skip GPS enforcement.</p>
             </div>
+
+            {watch("latitude") && watch("longitude") && (
+              <div className="flex items-center gap-1.5 text-emerald-400 text-xs">
+                <CheckCircle2 size={11} /> GPS coordinates set — geofence will be enforced
+              </div>
+            )}
           </div>
 
           <DialogFooter className="gap-2 pt-2">
@@ -309,9 +339,9 @@ export default function RoomsPage() {
                 </Badge>
                 <span className="text-slate-500 text-xs">{room.capacity} seats</span>
                 {room.has_gps ? (
-                  <Wifi size={12} className="text-emerald-400 ml-auto" />
+                  <Navigation size={12} className="text-emerald-400 ml-auto" />
                 ) : (
-                  <WifiOff size={12} className="text-slate-600 ml-auto" />
+                  <MapPin size={12} className="text-slate-600 ml-auto opacity-30" />
                 )}
               </div>
               {room.has_gps && (

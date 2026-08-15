@@ -56,13 +56,21 @@ class SessionSummarySerializer(serializers.ModelSerializer):
     total_students = serializers.IntegerField(read_only=True)
     is_open = serializers.BooleanField(read_only=True)
 
+    # Geofence info (Phase 8)
+    room_latitude = serializers.SerializerMethodField()
+    room_longitude = serializers.SerializerMethodField()
+    room_geofence_radius = serializers.SerializerMethodField()
+    room_has_gps = serializers.SerializerMethodField()
+
     class Meta:
         model = AttendanceSession
         fields = (
             "id", "date", "status", "session_code", "is_open",
             "subject_code", "subject_name", "section_name",
             "semester_name", "department_name", "faculty_name",
-            "room_name", "valid_from", "valid_until",
+            "room_name", "room_latitude", "room_longitude",
+            "room_geofence_radius", "room_has_gps",
+            "valid_from", "valid_until",
             "started_at", "ended_at", "duration_minutes",
             "attendance_count", "total_students",
             "timetable_entry", "notes", "created_at",
@@ -70,6 +78,18 @@ class SessionSummarySerializer(serializers.ModelSerializer):
 
     def get_room_name(self, obj):
         return obj.room.name if obj.room else None
+
+    def get_room_latitude(self, obj):
+        return str(obj.room.latitude) if obj.room and obj.room.latitude else None
+
+    def get_room_longitude(self, obj):
+        return str(obj.room.longitude) if obj.room and obj.room.longitude else None
+
+    def get_room_geofence_radius(self, obj):
+        return obj.room.geofence_radius if obj.room else None
+
+    def get_room_has_gps(self, obj):
+        return bool(obj.room and obj.room.has_gps)
 
 
 class SessionDetailSerializer(SessionSummarySerializer):

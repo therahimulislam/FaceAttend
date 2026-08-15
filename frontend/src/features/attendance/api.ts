@@ -22,6 +22,11 @@ export interface AttendanceSession {
   faculty_name: string;
   room: string | null;
   room_name: string | null;
+  // Phase 8 — geofence info
+  room_latitude: string | null;
+  room_longitude: string | null;
+  room_geofence_radius: number | null;
+  room_has_gps: boolean;
   date: string;
   session_code: string | null;
   status: SessionStatus;

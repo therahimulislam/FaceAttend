@@ -15,11 +15,13 @@ Access matrix:
 
 from datetime import date
 from django.db.models import Q, Count
+from django.utils import timezone
 from django_filters import rest_framework as django_filters
 from rest_framework import viewsets, permissions, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from apps.common.gps import check_geofence
 from apps.common.pagination import StandardPagination
 from apps.common.permissions import IsAdminUser, IsFacultyOrAdmin, IsStudent
 from apps.common.responses import success_response, error_response
@@ -289,9 +291,51 @@ class AttendanceSessionViewSet(viewsets.ModelViewSet):
 
         lat = ser.validated_data.get("latitude")
         lon = ser.validated_data.get("longitude")
+        has_gps = lat is not None and lon is not None
 
-        # Determine if late (after first 15 minutes of window)
-        from django.utils import timezone
+        # ---- Phase 8: Geofence Validation ----
+        gps_verified = False
+        geofence_skipped = False
+        verification_method = "MANUAL"
+
+        if has_gps:
+            room = session.room
+            if room and room.has_gps:
+                # Room has GPS — enforce geofence
+                result = check_geofence(
+                    student_lat=float(lat),
+                    student_lon=float(lon),
+                    room_lat=float(room.latitude),
+                    room_lon=float(room.longitude),
+                    radius_meters=room.geofence_radius,
+                )
+                if not result.within:
+                    return error_response(
+                        message=(
+                            f"You appear to be outside the classroom. "
+                            f"You are {result.distance_meters:.0f}m away from "
+                            f"{room.name} (allowed radius: {result.allowed_radius}m)."
+                        ),
+                        code="GEOFENCE_VIOLATION",
+                        errors={
+                            "distance_meters": result.distance_meters,
+                            "allowed_radius": result.allowed_radius,
+                            "exceeded_by": result.exceeded_by_meters,
+                        },
+                        status_code=status.HTTP_409_CONFLICT,
+                    )
+                gps_verified = True
+                verification_method = "GPS"
+            else:
+                # Room has no GPS coordinates — accept with GPS captured but not enforced
+                gps_verified = False
+                geofence_skipped = True
+                verification_method = "GPS"
+        else:
+            # No GPS supplied
+            verification_method = "MANUAL"
+
+        # ---- Determine LATE status ----
         now = timezone.now()
         grace_minutes = 15
         is_late = (
@@ -305,16 +349,20 @@ class AttendanceSessionViewSet(viewsets.ModelViewSet):
             student=student,
             defaults={
                 "status": mark_status,
-                "verification_method": "GPS" if (lat and lon) else "MANUAL",
-                "gps_verified": bool(lat and lon),
+                "verification_method": verification_method,
+                "gps_verified": gps_verified,
                 "marked_by": None,  # self-marked
                 "latitude": lat,
                 "longitude": lon,
             },
         )
 
+        response_data = AttendanceRecordSerializer(record).data
+        if geofence_skipped:
+            response_data["_geofence_warning"] = "Room has no GPS coordinates. Location not verified."
+
         return success_response(
-            data=AttendanceRecordSerializer(record).data,
+            data=response_data,
             message="Attendance marked successfully." if created else "Attendance already recorded.",
             status_code=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
         )
