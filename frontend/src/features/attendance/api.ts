@@ -52,6 +52,7 @@ export interface AttendanceRecord {
   verification_method: VerificationMethod;
   face_verified: boolean;
   gps_verified: boolean;
+  liveness_verified: boolean;  // Phase 11
   marked_at: string;
   marked_by: string | null;
   marked_by_email: string | null;
@@ -152,20 +153,26 @@ export const attendanceApi = {
     return res.data.data;
   },
 
-  /** Student self-mark attendance (Phase 7+). GPS optional, face optional (Phase 10). */
+  /** Student self-mark attendance (Phase 7+). GPS optional, face optional, liveness optional. */
   submitAttendance: async (
     sessionId: string,
     gps?: { latitude: string; longitude: string },
     faceImage?: File,
+    livenessChallengeId?: string,
   ): Promise<AttendanceRecord> => {
-    // If face image provided, send as multipart/form-data
-    if (faceImage) {
+    // If any biometric field provided, send as multipart/form-data
+    if (faceImage || livenessChallengeId) {
       const form = new FormData();
       if (gps) {
         form.append("latitude", gps.latitude);
         form.append("longitude", gps.longitude);
       }
-      form.append("face_image", faceImage);
+      if (faceImage) {
+        form.append("face_image", faceImage);
+      }
+      if (livenessChallengeId) {
+        form.append("liveness_challenge_id", livenessChallengeId);
+      }
       const res = await api.post<{ success: boolean; data: AttendanceRecord }>(
         `/attendance/sessions/${sessionId}/submit/`,
         form,

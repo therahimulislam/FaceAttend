@@ -286,7 +286,7 @@ class AttendanceSessionViewSet(viewsets.ModelViewSet):
                 status_code=status.HTTP_403_FORBIDDEN,
             )
 
-        # Parse multipart payload (GPS + optional face image)
+        # Parse multipart payload (GPS + optional face image + optional liveness challenge)
         ser = StudentSubmitSerializer(data=request.data)
         if not ser.is_valid():
             return error_response(errors=ser.errors)
@@ -294,8 +294,10 @@ class AttendanceSessionViewSet(viewsets.ModelViewSet):
         lat = ser.validated_data.get("latitude")
         lon = ser.validated_data.get("longitude")
         face_image_file = ser.validated_data.get("face_image")
+        liveness_challenge_id = ser.validated_data.get("liveness_challenge_id")
         has_gps = lat is not None and lon is not None
         has_face = face_image_file is not None
+        has_liveness = liveness_challenge_id is not None
 
         # ---- Phase 8: Geofence Validation ----
         gps_verified = False
@@ -382,6 +384,34 @@ class AttendanceSessionViewSet(viewsets.ModelViewSet):
                 logging.getLogger(__name__).exception("Face recognition error (non-fatal): %s", exc)
                 face_error = "Face recognition temporarily unavailable."
 
+        # ---- Phase 11: Liveness Challenge Validation ----
+        liveness_verified = False
+        liveness_warning = None
+
+        if has_liveness:
+            try:
+                from apps.face.models import LivenessChallenge
+                from django.utils import timezone as tz
+
+                challenge = LivenessChallenge.objects.get(
+                    id=liveness_challenge_id,
+                    student=student,
+                    liveness_verified=True,
+                    is_used=True,
+                )
+                # Challenge must have been verified within the last 5 minutes
+                age_seconds = (tz.now() - challenge.created_at).total_seconds()
+                if age_seconds > 300:
+                    liveness_warning = "Liveness challenge has expired (>5 min). Please re-verify."
+                else:
+                    liveness_verified = True
+            except LivenessChallenge.DoesNotExist:
+                liveness_warning = "Liveness challenge not found or not yet verified."
+            except Exception as exc:
+                import logging as _log
+                _log.getLogger(__name__).exception("Liveness validation error: %s", exc)
+                liveness_warning = "Liveness validation temporarily unavailable."
+
         # ---- Determine combined verification method ----
         if face_verified and gps_verified:
             final_method = "FACE_GPS"
@@ -409,6 +439,7 @@ class AttendanceSessionViewSet(viewsets.ModelViewSet):
                 "verification_method": final_method,
                 "gps_verified": gps_verified,
                 "face_verified": face_verified,
+                "liveness_verified": liveness_verified,
                 "marked_by": None,  # self-marked
                 "latitude": lat,
                 "longitude": lon,
@@ -427,6 +458,8 @@ class AttendanceSessionViewSet(viewsets.ModelViewSet):
             response_data["_geofence_warning"] = "Room has no GPS coordinates. Location not verified."
         if face_error:
             response_data["_face_warning"] = face_error
+        if liveness_warning:
+            response_data["_liveness_warning"] = liveness_warning
 
         return success_response(
             data=response_data,

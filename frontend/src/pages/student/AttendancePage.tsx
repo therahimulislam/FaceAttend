@@ -14,7 +14,7 @@ import axios from "axios";
 import {
   QrCode, MapPin, CheckCircle2, XCircle, Clock3,
   RefreshCw, ChevronRight, BookOpen, AlertCircle,
-  Users, Navigation, Loader2, ArrowLeft, Scan, Camera,
+  Users, Navigation, Loader2, ArrowLeft, Camera, Scan,
 } from "lucide-react";
 
 import {
@@ -27,6 +27,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import FaceLivenessCapture from "@/components/FaceLivenessCapture";
 
 // ---- Helpers ----
 type AttendanceStatus = "PRESENT" | "ABSENT" | "LATE" | "EXCUSED";
@@ -181,6 +182,9 @@ function SessionPreviewStep({
   const [faceImage, setFaceImage] = useState<File | null>(null);
   const [facePreview, setFacePreview] = useState<string | null>(null);
   const faceFileRef = useRef<HTMLInputElement>(null);
+  // Phase 11: ID of a successfully verified liveness challenge
+  const [livenessVerifiedId, setLivenessVerifiedId] = useState<string | null>(null);
+  const [livenessSkipped, setLivenessSkipped] = useState(false);
 
   const handleFaceFile = useCallback((file: File) => {
     setFaceImage(file);
@@ -194,7 +198,12 @@ function SessionPreviewStep({
 
   const submitMutation = useMutation({
     mutationFn: () =>
-      attendanceApi.submitAttendance(session.id, coords ?? undefined, faceImage ?? undefined),
+      attendanceApi.submitAttendance(
+        session.id,
+        coords ?? undefined,
+        faceImage ?? undefined,
+        livenessVerifiedId ?? undefined,
+      ),
     onSuccess: (record) => onSuccess(record),
     onError: (err) => {
       if (axios.isAxiosError(err)) {
@@ -391,6 +400,28 @@ function SessionPreviewStep({
         </div>
       )}
 
+      {/* Phase 11 — Liveness Detection (shown after face section) */}
+      {!livenessSkipped && (
+        <FaceLivenessCapture
+          sessionCode={session.session_code ?? ""}
+          onVerified={(challengeId) => {
+            setLivenessVerifiedId(challengeId);
+          }}
+          onSkip={() => {
+            setLivenessSkipped(true);
+            setLivenessVerifiedId(null);
+          }}
+        />
+      )}
+      {livenessSkipped && !livenessVerifiedId && (
+        <button
+          className="text-slate-600 hover:text-slate-400 text-xs transition-colors text-center w-full py-1"
+          onClick={() => setLivenessSkipped(false)}
+        >
+          + Enable liveness verification
+        </button>
+      )}
+
       {/* Geofence violation error */}
       {geofenceError && (
         <div className="rounded-lg bg-red-950/40 border border-red-800/40 p-4 space-y-2">
@@ -478,6 +509,10 @@ function SuccessStep({ record, onDone }: { record: AttendanceRecord; onDone: () 
         <div className="flex justify-between">
           <span className="text-slate-500">Face</span>
           <span className="text-slate-300">{record.face_verified ? "✅ Verified" : "Not verified"}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-slate-500">Liveness</span>
+          <span className="text-slate-300">{record.liveness_verified ? "✅ Verified" : "Not checked"}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-slate-500">Time</span>

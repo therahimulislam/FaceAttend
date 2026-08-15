@@ -197,3 +197,185 @@ class RevokeEnrollmentView(APIView):
             data=FaceEnrollmentSerializer(enrollment).data,
             message="Enrollment revoked.",
         )
+
+
+# ===========================================================================
+# Phase 11 — Liveness Challenge + Verification
+# ===========================================================================
+
+class LivenessChallengeView(generics.GenericAPIView):
+    """
+    POST /api/v1/face/liveness/challenge/
+
+    Issues a randomised, time-limited liveness challenge to the student.
+    The student must perform the instructed action on their webcam and then
+    submit the captured frames to /liveness/verify/.
+
+    Request body (optional):
+        { "session_code": "ABC123" }   — ties challenge to the current session
+
+    Response:
+        {
+          "challenge_id": "<uuid>",
+          "challenge_type": "BLINK",
+          "instruction": "Slowly blink both eyes twice.",
+          "expires_at": "<ISO datetime>",
+          "nonce": "<hex string>"       — for client-side binding
+        }
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        from apps.students.models import Student
+        from apps.face.models import LivenessChallenge
+
+        # Resolve student
+        try:
+            student = Student.objects.get(user=request.user)
+        except Student.DoesNotExist:
+            return error_response(
+                message="Only students can request liveness challenges.",
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
+        session_code = request.data.get("session_code", "") or ""
+
+        challenge = LivenessChallenge.create_for_student(
+            student=student,
+            session_code=session_code,
+        )
+
+        return success_response(
+            data={
+                "challenge_id": str(challenge.id),
+                "challenge_type": challenge.challenge_type,
+                "instruction": challenge.instruction,
+                "expires_at": challenge.expires_at.isoformat(),
+                "nonce": challenge.nonce,
+            },
+            message="Liveness challenge issued.",
+            status_code=status.HTTP_201_CREATED,
+        )
+
+
+class LivenessVerifyView(generics.GenericAPIView):
+    """
+    POST /api/v1/face/liveness/verify/
+
+    Verifies a liveness challenge by analysing submitted webcam frames.
+
+    Request: multipart/form-data
+        challenge_id   — UUID of the challenge issued by /liveness/challenge/
+        frames         — 3 to 10 JPEG/PNG image files (webcam snapshots)
+
+    Response (success):
+        {
+          "challenge_id": "<uuid>",
+          "liveness_verified": true,
+          "confidence": 0.73,
+          "variance": 8.42,
+          "frames_analyzed": 5,
+          "faces_detected": 5
+        }
+
+    Response (liveness failed):
+        HTTP 409 LIVENESS_FAILED with reason
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        from apps.students.models import Student
+        from apps.face.models import LivenessChallenge
+        from apps.face.liveness import liveness_engine
+
+        # ---- Resolve student ----
+        try:
+            student = Student.objects.get(user=request.user)
+        except Student.DoesNotExist:
+            return error_response(
+                message="Only students can submit liveness frames.",
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
+        # ---- Validate challenge ----
+        challenge_id = request.data.get("challenge_id")
+        if not challenge_id:
+            return error_response(
+                message="challenge_id is required.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            challenge = LivenessChallenge.objects.get(id=challenge_id, student=student)
+        except (LivenessChallenge.DoesNotExist, Exception):
+            return error_response(
+                message="Liveness challenge not found or does not belong to you.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        if challenge.is_used:
+            return error_response(
+                message="This liveness challenge has already been used. Request a new one.",
+                code="CHALLENGE_ALREADY_USED",
+                status_code=status.HTTP_409_CONFLICT,
+            )
+
+        if challenge.is_expired:
+            return error_response(
+                message="Liveness challenge has expired. Request a new one.",
+                code="CHALLENGE_EXPIRED",
+                status_code=status.HTTP_409_CONFLICT,
+            )
+
+        # ---- Extract frames from request ----
+        frame_files = request.FILES.getlist("frames")
+        if not frame_files:
+            return error_response(
+                message="No frames submitted. Send 3–10 webcam frame images.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        frames_bytes = []
+        for f in frame_files[:12]:
+            try:
+                frames_bytes.append(f.read())
+            except Exception:
+                pass
+
+        # ---- Run liveness analysis ----
+        result = liveness_engine.analyze(frames_bytes)
+
+        # ---- Mark challenge as used (regardless of pass/fail) ----
+        challenge.is_used = True
+        challenge.liveness_verified = result.is_live
+        challenge.variance = result.variance
+        challenge.confidence = result.confidence
+        challenge.frames_analyzed = result.frames_analyzed
+        challenge.faces_detected = result.faces_detected
+        challenge.fail_reason = "" if result.is_live else result.reason
+        challenge.save()
+
+        if not result.is_live:
+            return error_response(
+                message=result.reason,
+                code="LIVENESS_FAILED",
+                errors={
+                    "variance": result.variance,
+                    "confidence": result.confidence,
+                    "faces_detected": result.faces_detected,
+                    "frames_analyzed": result.frames_analyzed,
+                },
+                status_code=status.HTTP_409_CONFLICT,
+            )
+
+        return success_response(
+            data={
+                "challenge_id": str(challenge.id),
+                "liveness_verified": True,
+                "confidence": result.confidence,
+                "variance": result.variance,
+                "frames_analyzed": result.frames_analyzed,
+                "faces_detected": result.faces_detected,
+            },
+            message="Liveness verified successfully.",
+        )

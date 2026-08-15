@@ -119,6 +119,26 @@ class FaceEngine:
         embedding = faces[0].normed_embedding  # 512-d, already L2-normalised
         return embedding.tolist()
 
+    def detect(self, image_input) -> bool:
+        """
+        Check whether at least one face is present in the image.
+        Lighter than embed() — runs detection only, no embedding extraction.
+
+        Phase 11: used by LivenessEngine to verify face presence per frame.
+
+        Returns:
+            True if at least one face detected, False otherwise.
+        """
+        self._ensure_loaded()
+        try:
+            img = self._to_cv2(image_input)
+            faces = self._app.get(img)
+            return len(faces) > 0
+        except FaceEngineError:
+            raise
+        except Exception:
+            return False
+
     def distance(self, emb1: list[float], emb2: list[float]) -> float:
         """
         Cosine distance between two L2-normalised embeddings.
@@ -132,6 +152,7 @@ class FaceEngine:
     def matches(self, emb1: list[float], emb2: list[float]) -> bool:
         """Return True if two embeddings belong to the same person."""
         return self.distance(emb1, emb2) <= self.THRESHOLD
+
 
 
 # Module-level singleton — shared across all Django workers/threads
