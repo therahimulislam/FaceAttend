@@ -1,5 +1,5 @@
 """
-FaceAttend — Attendance Session Views (Phase 6)
+FaceAttend — Attendance Session Views (Phase 6 + 7)
 
 Access matrix:
   GET   list/retrieve      : authenticated (admin, faculty, student)
@@ -7,25 +7,29 @@ Access matrix:
   PATCH update             : faculty (own sessions) or admin
   POST  start/end/cancel   : faculty (own sessions) or admin
   POST  mark               : faculty (manual override) or admin
-  GET   today              : faculty only — today's sessions for this faculty
-  GET   records            : session records list (faculty/admin)
+  POST  submit             : student — self-marks attendance
+  GET   today              : faculty — today's sessions
+  GET   records            : session records (faculty/admin)
+  GET   my                 : student — personal attendance history
 """
+
 from datetime import date
-from django.db.models import Q
+from django.db.models import Q, Count
 from django_filters import rest_framework as django_filters
 from rest_framework import viewsets, permissions, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from apps.common.pagination import StandardPagination
-from apps.common.permissions import IsAdminUser, IsFacultyOrAdmin
+from apps.common.permissions import IsAdminUser, IsFacultyOrAdmin, IsStudent
 from apps.common.responses import success_response, error_response
 from apps.students.models import Student
-from .models import AttendanceSession, AttendanceRecord, SessionStatus
+from .models import AttendanceSession, AttendanceRecord, SessionStatus, AttendanceStatus
 from .serializers import (
     SessionSummarySerializer, SessionDetailSerializer,
     CreateSessionSerializer, StartSessionSerializer,
     AttendanceRecordSerializer, ManualMarkSerializer,
+    StudentSubmitSerializer, MyAttendanceRecordSerializer,
 )
 
 
@@ -77,7 +81,9 @@ class AttendanceSessionViewSet(viewsets.ModelViewSet):
         return SessionSummarySerializer
 
     def get_permissions(self):
-        if self.action in ("list", "retrieve", "today", "by_code"):
+        # submit + records: any authenticated user (student, faculty, admin)
+        # by_code: any authenticated user (student looks up session by code)
+        if self.action in ("list", "retrieve", "today", "by_code", "submit", "records"):
             return [permissions.IsAuthenticated()]
         return [IsFacultyOrAdmin()]
 
@@ -232,3 +238,159 @@ class AttendanceSessionViewSet(viewsets.ModelViewSet):
                 status_code=status.HTTP_404_NOT_FOUND,
             )
         return success_response(data=SessionSummarySerializer(session).data)
+
+    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
+    def submit(self, request, pk=None):
+        """
+        POST /api/v1/attendance/sessions/{id}/submit/
+        Student self-marks attendance for an active session.
+
+        Body:
+          { latitude: float|null, longitude: float|null }
+
+        Validations:
+          1. Session must be ACTIVE and within valid_from..valid_until
+          2. Student must belong to the session's section
+          3. Duplicate submissions update the record (idempotent)
+        """
+        session = self.get_object()
+        user = request.user
+
+        # Determine student from user
+        try:
+            student = user.student_profile
+        except Exception:
+            return error_response(
+                message="Only students can submit attendance.",
+                code="NOT_STUDENT",
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Session must be open
+        if not session.is_open:
+            return error_response(
+                message="This session is not currently accepting attendance.",
+                code="SESSION_CLOSED",
+                status_code=status.HTTP_409_CONFLICT,
+            )
+
+        # Section check
+        if student.section_id != session.section_id:
+            return error_response(
+                message="You are not enrolled in the section for this session.",
+                code="WRONG_SECTION",
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Parse GPS payload
+        ser = StudentSubmitSerializer(data=request.data)
+        if not ser.is_valid():
+            return error_response(errors=ser.errors)
+
+        lat = ser.validated_data.get("latitude")
+        lon = ser.validated_data.get("longitude")
+
+        # Determine if late (after first 15 minutes of window)
+        from django.utils import timezone
+        now = timezone.now()
+        grace_minutes = 15
+        is_late = (
+            session.valid_from is not None
+            and (now - session.valid_from).total_seconds() > grace_minutes * 60
+        )
+        mark_status = AttendanceStatus.LATE if is_late else AttendanceStatus.PRESENT
+
+        record, created = AttendanceRecord.objects.update_or_create(
+            session=session,
+            student=student,
+            defaults={
+                "status": mark_status,
+                "verification_method": "GPS" if (lat and lon) else "MANUAL",
+                "gps_verified": bool(lat and lon),
+                "marked_by": None,  # self-marked
+                "latitude": lat,
+                "longitude": lon,
+            },
+        )
+
+        return success_response(
+            data=AttendanceRecordSerializer(record).data,
+            message="Attendance marked successfully." if created else "Attendance already recorded.",
+            status_code=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Student personal attendance history
+# ---------------------------------------------------------------------------
+
+class MyAttendanceViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Read-only viewset for the logged-in student's own attendance history.
+
+    GET /api/v1/attendance/my/          — paginated attendance records
+    GET /api/v1/attendance/my/summary/  — per-subject attendance summary
+    """
+    serializer_class = MyAttendanceRecordSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardPagination
+    filter_backends = [django_filters.DjangoFilterBackend, filters.OrderingFilter]
+    ordering_fields = ["marked_at", "session__date"]
+    ordering = ["-session__date"]
+
+    def get_queryset(self):
+        user = self.request.user
+        try:
+            student = user.student_profile
+        except Exception:
+            return AttendanceRecord.objects.none()
+        return (
+            AttendanceRecord.objects
+            .filter(student=student)
+            .select_related("session__subject", "session__section", "session__faculty")
+            .order_by("-session__date")
+        )
+
+    def list(self, request, *args, **kwargs):
+        qs = self.get_queryset()
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            return self.get_paginated_response(MyAttendanceRecordSerializer(page, many=True).data)
+        return success_response(data=MyAttendanceRecordSerializer(qs, many=True).data)
+
+    @action(detail=False, methods=["get"])
+    def summary(self, request):
+        """
+        GET /api/v1/attendance/my/summary/
+        Returns per-subject attendance statistics.
+        [
+          { subject_code, subject_name, total, present, absent, late, excused, percentage }
+        ]
+        """
+        qs = self.get_queryset()
+        subject_map: dict = {}
+        for record in qs:
+            subj = record.session.subject
+            key = str(subj.id)
+            if key not in subject_map:
+                subject_map[key] = {
+                    "subject_id": key,
+                    "subject_code": subj.code,
+                    "subject_name": subj.name,
+                    "total": 0,
+                    "present": 0,
+                    "absent": 0,
+                    "late": 0,
+                    "excused": 0,
+                }
+            subject_map[key]["total"] += 1
+            subject_map[key][record.status.lower()] += 1
+
+        results = []
+        for entry in subject_map.values():
+            attended = entry["present"] + entry["late"]
+            entry["percentage"] = round(attended / entry["total"] * 100, 1) if entry["total"] else 0
+            results.append(entry)
+
+        results.sort(key=lambda x: x["percentage"])
+        return success_response(data=results)

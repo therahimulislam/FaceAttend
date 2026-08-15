@@ -146,4 +146,63 @@ export const attendanceApi = {
     );
     return res.data.data;
   },
+
+  /** Student self-mark attendance. */
+  submitAttendance: async (
+    sessionId: string,
+    gps?: { latitude: string; longitude: string }
+  ): Promise<AttendanceRecord> => {
+    const res = await api.post<{ success: boolean; data: AttendanceRecord }>(
+      `/attendance/sessions/${sessionId}/submit/`,
+      gps ?? {}
+    );
+    return res.data.data;
+  },
+
+  /** Student's own attendance records. */
+  myList: async (params?: { page_size?: number }): Promise<PaginatedResponse<MyAttendanceRecord>> => {
+    const res = await api.get<{ success: boolean; data: PaginatedResponse<MyAttendanceRecord> }>(
+      "/attendance/my/", { params }
+    );
+    return res.data.data;
+  },
+
+  /** Per-subject attendance summary for the logged-in student. */
+  mySummary: async (): Promise<SubjectSummary[]> => {
+    const res = await api.get<{ success: boolean; data: SubjectSummary[] }>(
+      "/attendance/my/summary/"
+    );
+    return res.data.data;
+  },
 };
+
+// ---- Extended Types for Phase 7 ----
+
+export interface MyAttendanceRecord {
+  id: string;
+  session_id: string;
+  session_date: string;
+  subject_code: string;
+  subject_name: string;
+  faculty_name: string;
+  section_name: string;
+  status: AttendanceStatus;
+  verification_method: VerificationMethod;
+  face_verified: boolean;
+  gps_verified: boolean;
+  marked_at: string;
+  rejection_reason: string;
+  created_at: string;
+}
+
+export interface SubjectSummary {
+  subject_id: string;
+  subject_code: string;
+  subject_name: string;
+  total: number;
+  present: number;
+  absent: number;
+  late: number;
+  excused: number;
+  percentage: number;
+}

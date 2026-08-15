@@ -32,6 +32,7 @@ import FacultyAttendancePage from "@/pages/faculty/AttendancePage";
 
 // Student pages
 import StudentDashboard from "@/pages/student/StudentDashboard";
+import StudentAttendancePage from "@/pages/student/AttendancePage";
 
 /** Redirect authenticated users away from auth pages */
 function GuestOnly() {
@@ -127,8 +128,8 @@ export const router = createBrowserRouter([
       {
         element: <AppLayout />,
         children: [
-          { path: "/student/dashboard", element: <StudentDashboard /> },
-          // Phase 7+: attendance marking, face enrollment, etc.
+          { path: "/student/dashboard",   element: <StudentDashboard /> },
+          { path: "/student/attendance",   element: <StudentAttendancePage /> },
         ],
       },
     ],

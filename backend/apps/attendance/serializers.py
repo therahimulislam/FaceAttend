@@ -119,3 +119,45 @@ class CreateSessionSerializer(serializers.ModelSerializer):
 class StartSessionSerializer(serializers.Serializer):
     """Optional payload when starting a session."""
     duration_minutes = serializers.IntegerField(min_value=5, max_value=180, default=60, required=False)
+
+
+# ---------------------------------------------------------------------------
+# Phase 7 — Student-side serializers
+# ---------------------------------------------------------------------------
+
+class StudentSubmitSerializer(serializers.Serializer):
+    """
+    Payload from a student when self-marking attendance.
+    GPS coordinates are optional (required in Phase 8 with geofence enforcement).
+    """
+    latitude = serializers.DecimalField(
+        max_digits=10, decimal_places=7,
+        required=False, allow_null=True,
+    )
+    longitude = serializers.DecimalField(
+        max_digits=10, decimal_places=7,
+        required=False, allow_null=True,
+    )
+
+
+class MyAttendanceRecordSerializer(serializers.ModelSerializer):
+    """Student-facing view of a single attendance record."""
+    session_date = serializers.DateField(source="session.date", read_only=True)
+    subject_code = serializers.CharField(source="session.subject.code", read_only=True)
+    subject_name = serializers.CharField(source="session.subject.name", read_only=True)
+    faculty_name = serializers.CharField(source="session.faculty.full_name", read_only=True)
+    section_name = serializers.CharField(source="session.section.name", read_only=True)
+    session_id = serializers.UUIDField(source="session.id", read_only=True)
+
+    class Meta:
+        model = AttendanceRecord
+        fields = (
+            "id", "session_id", "session_date",
+            "subject_code", "subject_name",
+            "faculty_name", "section_name",
+            "status", "verification_method",
+            "face_verified", "gps_verified",
+            "marked_at", "rejection_reason",
+            "created_at",
+        )
+        read_only_fields = fields
