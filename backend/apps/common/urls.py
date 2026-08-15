@@ -27,8 +27,8 @@ urlpatterns = [
     # Attendance (Phase 6+)
     path("attendance/", include("apps.attendance.urls")),
 
-    # Face Verification (Phase 9+)
-    # path("face/", include("apps.verification.urls")),
+    # Face Enrollment (Phase 9) + Face Recognition (Phase 10)
+    path("face/", include("apps.face.urls")),
 
     # Notifications (Phase 16)
     # path("notifications/", include("apps.notifications.urls")),

@@ -59,6 +59,7 @@ LOCAL_APPS = [
     "apps.academics",
     "apps.timetable",
     "apps.attendance",
+    "apps.face",
     "apps.verification",
     "apps.notifications",
     "apps.analytics",

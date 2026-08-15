@@ -33,6 +33,7 @@ import FacultyAttendancePage from "@/pages/faculty/AttendancePage";
 // Student pages
 import StudentDashboard from "@/pages/student/StudentDashboard";
 import StudentAttendancePage from "@/pages/student/AttendancePage";
+import FaceEnrollmentPage from "@/pages/student/FaceEnrollmentPage";
 
 /** Redirect authenticated users away from auth pages */
 function GuestOnly() {
@@ -130,6 +131,7 @@ export const router = createBrowserRouter([
         children: [
           { path: "/student/dashboard",   element: <StudentDashboard /> },
           { path: "/student/attendance",   element: <StudentAttendancePage /> },
+          { path: "/student/face-enroll",  element: <FaceEnrollmentPage /> },
         ],
       },
     ],
