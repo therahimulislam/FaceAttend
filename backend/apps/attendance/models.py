@@ -272,3 +272,8 @@ class AttendanceRecord(models.Model):
 
     def __str__(self):
         return f"{self.student} | {self.session.date} | {self.status}"
+
+    @property
+    def is_fully_verified(self) -> bool:
+        """Phase 12: True only when all three biometric/location checks passed."""
+        return bool(self.gps_verified and self.face_verified and self.liveness_verified)

@@ -113,17 +113,23 @@ class StudentSubmitTest(TestCase):
         self.assertEqual(body["data"]["gps_verified"], False)
         self.assertEqual(body["data"]["verification_method"], "GPS")
 
-    def test_duplicate_submit_is_idempotent(self):
-        self.student_client.post(
+    def test_duplicate_submit_blocked(self):
+        """Phase 12: second submit by same student returns 409 ALREADY_MARKED."""
+        # First submission succeeds
+        first = self.student_client.post(
             reverse("attendance-session-submit", args=[self.session.id]),
             {}, format="json"
         )
-        # Second submission updates, not creates
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(AttendanceRecord.objects.count(), 1)
+        # Second submission is blocked
         res = self.student_client.post(
             reverse("attendance-session-submit", args=[self.session.id]),
             {}, format="json"
         )
-        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(res.json()["code"], "ALREADY_MARKED")
+        # Still only one record
         self.assertEqual(AttendanceRecord.objects.count(), 1)
 
     def test_wrong_section_rejected(self):
