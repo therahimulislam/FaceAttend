@@ -514,12 +514,19 @@ function SuccessStep({ record, onDone }: { record: AttendanceRecord; onDone: () 
           <span className="text-slate-500">Liveness</span>
           <span className="text-slate-300">{record.liveness_verified ? "✅ Verified" : "Not checked"}</span>
         </div>
-        <div className="flex justify-between">
-          <span className="text-slate-500">Time</span>
-          <span className="text-slate-300">
-            {new Date(record.marked_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+        {/* Phase 12 — composite verification status */}
+        <div className="flex justify-between pt-1 border-t border-white/5">
+          <span className="text-slate-400 font-medium text-xs">Fully Verified</span>
+          <span className={record.is_fully_verified ? "text-emerald-400 text-xs font-semibold" : "text-amber-400 text-xs"}>
+            {record.is_fully_verified ? "✅ All checks passed" : "⚠️ Partial"}
           </span>
         </div>
+        {/* Timetable warning */}
+        {record._timetable_warning && (
+          <div className="text-amber-400/80 text-xs bg-amber-950/30 border border-amber-800/30 rounded p-2 mt-1">
+            ⚠️ {record._timetable_warning}
+          </div>
+        )}
       </div>
 
       <Button

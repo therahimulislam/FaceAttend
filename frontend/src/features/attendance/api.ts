@@ -53,11 +53,25 @@ export interface AttendanceRecord {
   face_verified: boolean;
   gps_verified: boolean;
   liveness_verified: boolean;  // Phase 11
+  is_fully_verified: boolean;  // Phase 12: GPS + Face + Liveness all true
   marked_at: string;
   marked_by: string | null;
   marked_by_email: string | null;
   rejection_reason: string;
   created_at: string;
+  // Phase 12 transparency fields (only on submit response)
+  _verification_summary?: {
+    section_match: boolean;
+    gps_verified: boolean;
+    face_verified: boolean;
+    liveness_verified: boolean;
+    is_fully_verified: boolean;
+    timetable_warning: string | null;
+  };
+  _timetable_warning?: string;
+  _face_warning?: string;
+  _liveness_warning?: string;
+  _geofence_warning?: string;
 }
 
 export interface CreateSessionPayload {

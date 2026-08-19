@@ -14,20 +14,21 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source="student.full_name", read_only=True)
     student_id = serializers.CharField(source="student.student_id", read_only=True)
     marked_by_email = serializers.CharField(source="marked_by.email", read_only=True, default=None)
+    is_fully_verified = serializers.BooleanField(read_only=True)  # Phase 12 computed property
 
     class Meta:
         model = AttendanceRecord
         fields = (
             "id", "session", "student", "student_name", "student_id",
             "status", "verification_method",
-            "face_verified", "gps_verified", "liveness_verified",
+            "face_verified", "gps_verified", "liveness_verified", "is_fully_verified",
             "marked_at", "marked_by", "marked_by_email",
             "latitude", "longitude",
             "rejection_reason", "created_at", "updated_at",
         )
         read_only_fields = (
             "id", "marked_at", "face_verified", "gps_verified", "liveness_verified",
-            "student_name", "student_id", "marked_by_email",
+            "is_fully_verified", "student_name", "student_id", "marked_by_email",
             "created_at", "updated_at",
         )
 
@@ -179,6 +180,7 @@ class MyAttendanceRecordSerializer(serializers.ModelSerializer):
     faculty_name = serializers.CharField(source="session.faculty.full_name", read_only=True)
     section_name = serializers.CharField(source="session.section.name", read_only=True)
     session_id = serializers.UUIDField(source="session.id", read_only=True)
+    is_fully_verified = serializers.BooleanField(read_only=True)  # Phase 12 computed property
 
     class Meta:
         model = AttendanceRecord
@@ -187,7 +189,7 @@ class MyAttendanceRecordSerializer(serializers.ModelSerializer):
             "subject_code", "subject_name",
             "faculty_name", "section_name",
             "status", "verification_method",
-            "face_verified", "gps_verified", "liveness_verified",
+            "face_verified", "gps_verified", "liveness_verified", "is_fully_verified",
             "marked_at", "rejection_reason",
             "created_at",
         )

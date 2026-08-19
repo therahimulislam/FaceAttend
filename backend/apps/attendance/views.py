@@ -249,13 +249,20 @@ class AttendanceSessionViewSet(viewsets.ModelViewSet):
         POST /api/v1/attendance/sessions/{id}/submit/
         Student self-marks attendance for an active session.
 
-        Body:
-          { latitude: float|null, longitude: float|null }
+        Body (multipart or JSON):
+          latitude, longitude  — optional GPS
+          face_image           — optional live face photo (Phase 10)
+          liveness_challenge_id — optional verified liveness challenge UUID (Phase 11)
 
-        Validations:
+        Validations (Phase 12):
           1. Session must be ACTIVE and within valid_from..valid_until
           2. Student must belong to the session's section
-          3. Duplicate submissions update the record (idempotent)
+          3. If student already marked PRESENT/LATE → 409 ALREADY_MARKED
+          4. Timetable day/time mismatch → non-blocking _timetable_warning in response
+          5. GPS/Geofence enforced if room has GPS
+          6. Face recognition if enrolled
+          7. Liveness if challenge provided
+          8. _verification_summary always included in response
         """
         session = self.get_object()
         user = request.user
@@ -286,10 +293,35 @@ class AttendanceSessionViewSet(viewsets.ModelViewSet):
                 status_code=status.HTTP_403_FORBIDDEN,
             )
 
+        # ---- Phase 12: Duplicate prevention ----
+        # Block re-submission if already PRESENT or LATE
+        existing = AttendanceRecord.objects.filter(
+            session=session,
+            student=student,
+            status__in=[AttendanceStatus.PRESENT, AttendanceStatus.LATE],
+        ).first()
+        if existing:
+            return error_response(
+                message="Attendance has already been marked for this session.",
+                code="ALREADY_MARKED",
+                status_code=status.HTTP_409_CONFLICT,
+            )
+
         # Parse multipart payload (GPS + optional face image + optional liveness challenge)
         ser = StudentSubmitSerializer(data=request.data)
         if not ser.is_valid():
             return error_response(errors=ser.errors)
+
+        # ---- Phase 12: Timetable day/time validation (non-blocking) ----
+        timetable_warning = None
+        if session.timetable_entry_id:
+            entry = session.timetable_entry
+            today_abbr = timezone.localtime().strftime("%A")[:3].upper()
+            if entry.day.upper() != today_abbr:
+                timetable_warning = (
+                    f"Session is scheduled for {entry.get_day_display()}, "
+                    f"but today is {timezone.localtime().strftime('%A')}."
+                )
 
         lat = ser.validated_data.get("latitude")
         lon = ser.validated_data.get("longitude")
@@ -460,11 +492,23 @@ class AttendanceSessionViewSet(viewsets.ModelViewSet):
             response_data["_face_warning"] = face_error
         if liveness_warning:
             response_data["_liveness_warning"] = liveness_warning
+        if timetable_warning:
+            response_data["_timetable_warning"] = timetable_warning
+
+        # ---- Phase 12: Structured verification summary ----
+        response_data["_verification_summary"] = {
+            "section_match": True,
+            "gps_verified": gps_verified,
+            "face_verified": face_verified,
+            "liveness_verified": liveness_verified,
+            "is_fully_verified": record.is_fully_verified,
+            "timetable_warning": timetable_warning,
+        }
 
         return success_response(
             data=response_data,
-            message="Attendance marked successfully." if created else "Attendance already recorded.",
-            status_code=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+            message="Attendance marked successfully.",
+            status_code=status.HTTP_201_CREATED,
         )
 
 
