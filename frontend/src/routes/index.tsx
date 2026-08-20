@@ -27,6 +27,7 @@ import RoomsPage from "@/pages/admin/RoomsPage";
 import AdminTimetablePage from "@/pages/admin/TimetablePage";
 
 // Faculty pages
+import FacultyDashboard from "@/pages/faculty/FacultyDashboard";  // Phase 14
 import FacultyTimetablePage from "@/pages/faculty/TimetablePage";
 import FacultyAttendancePage from "@/pages/faculty/AttendancePage";
 
@@ -42,6 +43,7 @@ function GuestOnly() {
 
   // Redirect to appropriate dashboard
   if (user?.role === "STUDENT") return <Navigate to="/student/dashboard" replace />;
+  if (user?.role === "FACULTY") return <Navigate to="/faculty/dashboard" replace />;
   return <Navigate to="/admin/dashboard" replace />;
 }
 
@@ -113,6 +115,7 @@ export const router = createBrowserRouter([
       {
         element: <AppLayout />,
         children: [
+          { path: "/faculty/dashboard",  element: <FacultyDashboard /> },  // Phase 14
           { path: "/faculty/timetable",  element: <FacultyTimetablePage /> },
           { path: "/faculty/attendance", element: <FacultyAttendancePage /> },
         ],
