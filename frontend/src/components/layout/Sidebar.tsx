@@ -21,6 +21,7 @@ import { useAuthStore } from "@/store/authStore";
 import { useLogout } from "@/features/auth/hooks/useLogout";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { UserRole } from "@/types";
+import { NotificationBell } from "@/components/NotificationPanel";  // Phase 16
 
 interface NavItem {
   label: string;
@@ -116,7 +117,7 @@ export function Sidebar() {
 
       {/* Footer: user card + logout */}
       <div className="px-3 py-4 border-t border-white/5 space-y-2">
-        {/* User info */}
+        {/* User info + notification bell */}
         <div className="flex items-center gap-3 px-2 py-2 rounded-lg">
           <Avatar className="w-8 h-8">
             <AvatarFallback className="bg-white/10 text-white text-xs">{initials}</AvatarFallback>
@@ -125,6 +126,7 @@ export function Sidebar() {
             <p className="text-white text-xs font-medium truncate">{user?.email}</p>
             <p className="text-slate-500 text-xs">{user ? roleBadge[user.role] : ""}</p>
           </div>
+          <NotificationBell />
         </div>
 
         {/* Settings + Logout */}

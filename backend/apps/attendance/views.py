@@ -348,6 +348,16 @@ class AttendanceSessionViewSet(viewsets.ModelViewSet):
                     radius_meters=room.geofence_radius,
                 )
                 if not result.within:
+                    try:
+                        from apps.notifications.service import NotificationService
+                        NotificationService.attendance_failed(
+                            student=student,
+                            subject_name=session.subject.name,
+                            subject_code=session.subject.code,
+                            reason="Outside classroom geofence.",
+                        )
+                    except Exception:
+                        pass
                     return error_response(
                         message=(
                             f"You appear to be outside the classroom. "
@@ -388,6 +398,16 @@ class AttendanceSessionViewSet(viewsets.ModelViewSet):
                     face_distance = round(face_engine.distance(live_embedding, enrollment.embedding), 4)
                     face_verified = face_engine.matches(live_embedding, enrollment.embedding)
                     if not face_verified:
+                        try:
+                            from apps.notifications.service import NotificationService
+                            NotificationService.suspicious_attempt(
+                                student=student,
+                                subject_name=session.subject.name,
+                                subject_code=session.subject.code,
+                                reason="Face mismatch detected.",
+                            )
+                        except Exception:
+                            pass
                         return error_response(
                             message=(
                                 "Face verification failed. The face in the photo does not match "
@@ -504,6 +524,40 @@ class AttendanceSessionViewSet(viewsets.ModelViewSet):
             "is_fully_verified": record.is_fully_verified,
             "timetable_warning": timetable_warning,
         }
+
+        # ---- Phase 16: Notifications ----
+        try:
+            from apps.notifications.service import NotificationService
+            subj = session.subject
+            session_date_str = str(session.date)
+
+            NotificationService.attendance_success(
+                student=student,
+                subject_name=subj.name,
+                subject_code=subj.code,
+                status=record.status,
+                session_date=session_date_str,
+            )
+
+            # Low attendance check — compute current % for this subject
+            from apps.attendance.models import AttendanceRecord as AR
+            subject_records = AR.objects.filter(student=student, session__subject=subj)
+            total = subject_records.count()
+            attended = subject_records.filter(
+                status__in=["PRESENT", "LATE"]
+            ).count()
+            if total >= 3:  # only warn after 3+ sessions to avoid noise
+                pct = round(attended / total * 100, 1)
+                if pct < 75:
+                    NotificationService.low_attendance(
+                        student=student,
+                        subject_name=subj.name,
+                        subject_code=subj.code,
+                        percentage=pct,
+                    )
+        except Exception as _notif_err:
+            import logging
+            logging.getLogger(__name__).warning("Notification failed: %s", _notif_err)
 
         return success_response(
             data=response_data,

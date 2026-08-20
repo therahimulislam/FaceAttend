@@ -100,6 +100,13 @@ class StudentViewSet(viewsets.ReadOnlyModelViewSet):
         student.rejection_reason = ""
         student.save()
 
+        # Phase 16 — notify student
+        try:
+            from apps.notifications.service import NotificationService
+            NotificationService.registration_approved(student)
+        except Exception:
+            pass
+
         return success_response(
             data=StudentSerializer(student).data,
             message=f"{student.full_name} has been approved.",
@@ -123,6 +130,15 @@ class StudentViewSet(viewsets.ReadOnlyModelViewSet):
         student.approval_status = ApprovalStatus.REJECTED
         student.rejection_reason = serializer.validated_data.get("rejection_reason", "")
         student.save(update_fields=["approval_status", "rejection_reason", "updated_at"])
+
+        # Phase 16 — notify student
+        try:
+            from apps.notifications.service import NotificationService
+            NotificationService.registration_rejected(
+                student, reason=student.rejection_reason
+            )
+        except Exception:
+            pass
 
         return success_response(
             data=StudentSerializer(student).data,
