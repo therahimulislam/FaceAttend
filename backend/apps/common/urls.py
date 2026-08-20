@@ -34,7 +34,7 @@ urlpatterns = [
     # path("notifications/", include("apps.notifications.urls")),
 
     # Reports (Phase 15)
-    # path("reports/", include("apps.analytics.urls")),
+    path("reports/", include("apps.analytics.urls")),
 
     # Audit (Phase 17)
     # path("audit-logs/", include("apps.audit.urls")),

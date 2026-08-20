@@ -41,12 +41,14 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard",    to: "/faculty/dashboard",  icon: LayoutDashboard, roles: ["FACULTY"] },  // Phase 14
   { label: "My Timetable", to: "/faculty/timetable", icon: Calendar,        roles: ["FACULTY"] },
   { label: "Attendance",   to: "/faculty/attendance", icon: CheckSquare,   roles: ["FACULTY"] },
-  { label: "Reports",      to: "/admin/reports",     icon: BarChart3,       roles: ["SUPER_ADMIN", "DEPARTMENT_ADMIN", "FACULTY"] },
+  { label: "Reports",      to: "/admin/reports",     icon: BarChart3,       roles: ["SUPER_ADMIN", "DEPARTMENT_ADMIN"] },  // Phase 15
+  { label: "Reports",      to: "/faculty/reports",   icon: BarChart3,       roles: ["FACULTY"] },  // Phase 15
 
   // Student
   { label: "Dashboard",    to: "/student/dashboard", icon: LayoutDashboard, roles: ["STUDENT"] },
   { label: "My Attendance",to: "/student/attendance",icon: CheckSquare,     roles: ["STUDENT"] },
   { label: "Face Enroll",  to: "/student/face-enroll",icon: Scan,          roles: ["STUDENT"] },
+  { label: "My Reports",   to: "/student/reports",   icon: BarChart3,       roles: ["STUDENT"] },  // Phase 15
 ];
 
 export function Sidebar() {
