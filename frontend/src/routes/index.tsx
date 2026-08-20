@@ -25,6 +25,7 @@ import DepartmentsPage from "@/pages/admin/DepartmentsPage";
 import SubjectsPage from "@/pages/admin/SubjectsPage";
 import RoomsPage from "@/pages/admin/RoomsPage";
 import AdminTimetablePage from "@/pages/admin/TimetablePage";
+import ReportsPage from "@/pages/admin/ReportsPage";  // Phase 15
 
 // Faculty pages
 import FacultyDashboard from "@/pages/faculty/FacultyDashboard";  // Phase 14
@@ -101,6 +102,7 @@ export const router = createBrowserRouter([
           { path: "/admin/subjects",    element: <SubjectsPage /> },
           { path: "/admin/rooms",       element: <RoomsPage /> },
           { path: "/admin/timetable",   element: <AdminTimetablePage /> },
+          { path: "/admin/reports",     element: <ReportsPage /> },  // Phase 15
         ],
       },
     ],
@@ -118,6 +120,7 @@ export const router = createBrowserRouter([
           { path: "/faculty/dashboard",  element: <FacultyDashboard /> },  // Phase 14
           { path: "/faculty/timetable",  element: <FacultyTimetablePage /> },
           { path: "/faculty/attendance", element: <FacultyAttendancePage /> },
+          { path: "/faculty/reports",    element: <ReportsPage /> },  // Phase 15
         ],
       },
     ],
@@ -135,6 +138,7 @@ export const router = createBrowserRouter([
           { path: "/student/dashboard",   element: <StudentDashboard /> },
           { path: "/student/attendance",   element: <StudentAttendancePage /> },
           { path: "/student/face-enroll",  element: <FaceEnrollmentPage /> },
+          { path: "/student/reports",      element: <ReportsPage /> },  // Phase 15
         ],
       },
     ],
