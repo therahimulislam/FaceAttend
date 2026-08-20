@@ -1,12 +1,8 @@
 /**
- * FaceAttend — Faculty Attendance Sessions Page (Phase 6)
+ * FaceAttend — Faculty Attendance Sessions Page (Phase 6 / Phase 13)
  *
- * Shows today's scheduled classes and allows faculty to:
- *  - Create ad-hoc sessions
- *  - Start a session (generates a live session code)
- *  - View active session's attendance roll in real-time
- *  - Manually mark students as present/absent/late/excused
- *  - End or cancel a session
+ * Phase 13: Real-time attendance via WebSocket (LiveAttendancePanel)
+ * replaces the 5-second polling in the active session view.
  */
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -27,6 +23,7 @@ import {
   type AttendanceStatus,
 } from "@/features/attendance/api";
 import { timetableApi } from "@/features/timetable/api";
+import { LiveAttendancePanel } from "@/components/LiveAttendancePanel";  // Phase 13
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -183,7 +180,7 @@ function ActiveSessionPanel({
   const { data: records, refetch } = useQuery({
     queryKey: ["session-records", session.id],
     queryFn: () => attendanceApi.getRecords(session.id),
-    refetchInterval: 5000, // Poll every 5s during active session
+    refetchInterval: 30_000, // Phase 13: reduced poll — WS handles live updates
   });
 
   const allRecords = records?.results ?? [];
@@ -253,6 +250,11 @@ function ActiveSessionPanel({
             </Button>
           </div>
         </div>
+      </div>
+
+      {/* Phase 13: Live Attendance WebSocket Panel */}
+      <div className="bg-white/3 border border-white/8 rounded-xl p-4">
+        <LiveAttendancePanel sessionId={session.id} />
       </div>
 
       {/* Attendance Roll */}
