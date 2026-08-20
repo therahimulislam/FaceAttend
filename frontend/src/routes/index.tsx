@@ -26,6 +26,7 @@ import SubjectsPage from "@/pages/admin/SubjectsPage";
 import RoomsPage from "@/pages/admin/RoomsPage";
 import AdminTimetablePage from "@/pages/admin/TimetablePage";
 import ReportsPage from "@/pages/admin/ReportsPage";  // Phase 15
+import NotificationsPage from "@/pages/NotificationsPage";  // Phase 16
 
 // Faculty pages
 import FacultyDashboard from "@/pages/faculty/FacultyDashboard";  // Phase 14
@@ -102,7 +103,8 @@ export const router = createBrowserRouter([
           { path: "/admin/subjects",    element: <SubjectsPage /> },
           { path: "/admin/rooms",       element: <RoomsPage /> },
           { path: "/admin/timetable",   element: <AdminTimetablePage /> },
-          { path: "/admin/reports",     element: <ReportsPage /> },  // Phase 15
+          { path: "/admin/reports",         element: <ReportsPage /> },  // Phase 15
+          { path: "/admin/notifications",    element: <NotificationsPage /> },  // Phase 16
         ],
       },
     ],
@@ -120,7 +122,8 @@ export const router = createBrowserRouter([
           { path: "/faculty/dashboard",  element: <FacultyDashboard /> },  // Phase 14
           { path: "/faculty/timetable",  element: <FacultyTimetablePage /> },
           { path: "/faculty/attendance", element: <FacultyAttendancePage /> },
-          { path: "/faculty/reports",    element: <ReportsPage /> },  // Phase 15
+          { path: "/faculty/reports",        element: <ReportsPage /> },  // Phase 15
+          { path: "/faculty/notifications",   element: <NotificationsPage /> },  // Phase 16
         ],
       },
     ],
@@ -138,7 +141,8 @@ export const router = createBrowserRouter([
           { path: "/student/dashboard",   element: <StudentDashboard /> },
           { path: "/student/attendance",   element: <StudentAttendancePage /> },
           { path: "/student/face-enroll",  element: <FaceEnrollmentPage /> },
-          { path: "/student/reports",      element: <ReportsPage /> },  // Phase 15
+          { path: "/student/reports",        element: <ReportsPage /> },  // Phase 15
+          { path: "/student/notifications",   element: <NotificationsPage /> },  // Phase 16
         ],
       },
     ],
