@@ -51,3 +51,12 @@ LOGGING = {
         },
     },
 }
+
+# ---------------------------------------------------------------------------
+# Phase 13 — In-memory channel layer (no Redis needed in dev/test)
+# ---------------------------------------------------------------------------
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
+}

@@ -14,9 +14,7 @@ django.setup()
 from channels.routing import ProtocolTypeRouter, URLRouter  # noqa: E402
 from channels.auth import AuthMiddlewareStack  # noqa: E402
 from channels.security.websocket import AllowedHostsOriginValidator  # noqa: E402
-
-# WebSocket URL patterns will be registered here as features are added
-websocket_urlpatterns = []
+from apps.attendance.routing import websocket_urlpatterns  # noqa: E402
 
 application = ProtocolTypeRouter(
     {
