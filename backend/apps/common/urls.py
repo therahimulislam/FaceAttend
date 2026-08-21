@@ -38,4 +38,7 @@ urlpatterns = [
 
     # Audit (Phase 17)
     path("audit-logs/", include("apps.audit.urls")),
+
+    # AI Insights (Phase 18)
+    path("ai/", include("apps.ai_insights.urls")),
 ]
