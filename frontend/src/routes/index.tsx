@@ -28,6 +28,7 @@ import AdminTimetablePage from "@/pages/admin/TimetablePage";
 import ReportsPage from "@/pages/admin/ReportsPage";  // Phase 15
 import NotificationsPage from "@/pages/NotificationsPage";  // Phase 16
 import AuditLogsPage from "@/pages/admin/AuditLogsPage";  // Phase 17
+import AdminAIInsightsPage from "@/pages/admin/AdminAIInsightsPage";  // Phase 18
 
 // Faculty pages
 import FacultyDashboard from "@/pages/faculty/FacultyDashboard";  // Phase 14
@@ -38,6 +39,7 @@ import FacultyAttendancePage from "@/pages/faculty/AttendancePage";
 import StudentDashboard from "@/pages/student/StudentDashboard";
 import StudentAttendancePage from "@/pages/student/AttendancePage";
 import FaceEnrollmentPage from "@/pages/student/FaceEnrollmentPage";
+import StudentAIInsightsPage from "@/pages/student/StudentAIInsightsPage";  // Phase 18
 
 /** Redirect authenticated users away from auth pages */
 function GuestOnly() {
@@ -107,6 +109,7 @@ export const router = createBrowserRouter([
           { path: "/admin/reports",         element: <ReportsPage /> },  // Phase 15
           { path: "/admin/notifications",    element: <NotificationsPage /> },  // Phase 16
           { path: "/admin/audit-logs",       element: <AuditLogsPage /> },  // Phase 17
+          { path: "/admin/ai-insights",       element: <AdminAIInsightsPage /> },  // Phase 18
         ],
       },
     ],
@@ -145,6 +148,7 @@ export const router = createBrowserRouter([
           { path: "/student/face-enroll",  element: <FaceEnrollmentPage /> },
           { path: "/student/reports",        element: <ReportsPage /> },  // Phase 15
           { path: "/student/notifications",   element: <NotificationsPage /> },  // Phase 16
+          { path: "/student/ai-insights",      element: <StudentAIInsightsPage /> },  // Phase 18
         ],
       },
     ],
