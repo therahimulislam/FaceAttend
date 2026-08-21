@@ -1,8 +1,10 @@
 /**
  * FaceAttend — Sidebar Navigation
  * Role-aware navigation: shows relevant links per user role.
+ * Phase 19: Mobile-responsive with hamburger drawer.
  */
-import { NavLink, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   Users,
@@ -15,15 +17,17 @@ import {
   LogOut,
   Scan,
   ChevronRight,
-  ShieldCheck,  // Phase 17
-  Brain,        // Phase 18
+  ShieldCheck,
+  Brain,
+  Menu,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
 import { useLogout } from "@/features/auth/hooks/useLogout";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { UserRole } from "@/types";
-import { NotificationBell } from "@/components/NotificationPanel";  // Phase 16
+import { NotificationBell } from "@/components/NotificationPanel";
 
 interface NavItem {
   label: string;
@@ -40,44 +44,45 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Departments",  to: "/admin/departments", icon: BookOpen,        roles: ["SUPER_ADMIN", "DEPARTMENT_ADMIN"] },
   { label: "Subjects",     to: "/admin/subjects",    icon: GraduationCap,   roles: ["SUPER_ADMIN", "DEPARTMENT_ADMIN"] },
   { label: "Rooms",        to: "/admin/rooms",       icon: BarChart3,       roles: ["SUPER_ADMIN", "DEPARTMENT_ADMIN"] },
-  { label: "Timetable",    to: "/admin/timetable",   icon: Calendar,        roles: ["SUPER_ADMIN", "DEPARTMENT_ADMIN"] },
-  { label: "Dashboard",    to: "/faculty/dashboard",  icon: LayoutDashboard, roles: ["FACULTY"] },  // Phase 14
-  { label: "My Timetable", to: "/faculty/timetable", icon: Calendar,        roles: ["FACULTY"] },
-  { label: "Attendance",   to: "/faculty/attendance", icon: CheckSquare,   roles: ["FACULTY"] },
-  { label: "Reports",      to: "/admin/reports",     icon: BarChart3,       roles: ["SUPER_ADMIN", "DEPARTMENT_ADMIN"] },  // Phase 15
-  { label: "Audit Logs",   to: "/admin/audit-logs",  icon: ShieldCheck,     roles: ["SUPER_ADMIN", "DEPARTMENT_ADMIN"] },  // Phase 17
-  { label: "AI Insights",  to: "/admin/ai-insights", icon: Brain,           roles: ["SUPER_ADMIN", "DEPARTMENT_ADMIN"] },  // Phase 18
-  { label: "Reports",      to: "/faculty/reports",   icon: BarChart3,       roles: ["FACULTY"] },  // Phase 15
+  { label: "Timetable",   to: "/admin/timetable",   icon: Calendar,        roles: ["SUPER_ADMIN", "DEPARTMENT_ADMIN"] },
+  { label: "Dashboard",   to: "/faculty/dashboard",  icon: LayoutDashboard, roles: ["FACULTY"] },
+  { label: "My Timetable",to: "/faculty/timetable", icon: Calendar,        roles: ["FACULTY"] },
+  { label: "Attendance",  to: "/faculty/attendance", icon: CheckSquare,    roles: ["FACULTY"] },
+  { label: "Reports",     to: "/admin/reports",     icon: BarChart3,       roles: ["SUPER_ADMIN", "DEPARTMENT_ADMIN"] },
+  { label: "Audit Logs",  to: "/admin/audit-logs",  icon: ShieldCheck,     roles: ["SUPER_ADMIN", "DEPARTMENT_ADMIN"] },
+  { label: "AI Insights", to: "/admin/ai-insights", icon: Brain,           roles: ["SUPER_ADMIN", "DEPARTMENT_ADMIN"] },
+  { label: "Reports",     to: "/faculty/reports",   icon: BarChart3,       roles: ["FACULTY"] },
 
   // Student
-  { label: "Dashboard",    to: "/student/dashboard", icon: LayoutDashboard, roles: ["STUDENT"] },
-  { label: "My Attendance",to: "/student/attendance",icon: CheckSquare,     roles: ["STUDENT"] },
-  { label: "Face Enroll",  to: "/student/face-enroll",icon: Scan,          roles: ["STUDENT"] },
-  { label: "My Reports",   to: "/student/reports",   icon: BarChart3,       roles: ["STUDENT"] },  // Phase 15
-  { label: "AI Insights",  to: "/student/ai-insights",icon: Brain,         roles: ["STUDENT"] },  // Phase 18
+  { label: "Dashboard",    to: "/student/dashboard",  icon: LayoutDashboard, roles: ["STUDENT"] },
+  { label: "My Attendance",to: "/student/attendance", icon: CheckSquare,     roles: ["STUDENT"] },
+  { label: "Face Enroll",  to: "/student/face-enroll",icon: Scan,           roles: ["STUDENT"] },
+  { label: "My Reports",   to: "/student/reports",    icon: BarChart3,       roles: ["STUDENT"] },
+  { label: "AI Insights",  to: "/student/ai-insights",icon: Brain,          roles: ["STUDENT"] },
 ];
 
-export function Sidebar() {
-  const user = useAuthStore((s) => s.user);
+// ---------------------------------------------------------------------------
+// Sidebar inner content — shared between desktop and mobile drawer
+// ---------------------------------------------------------------------------
+function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
+  const user   = useAuthStore((s) => s.user);
   const logout = useLogout();
 
   const filteredItems = NAV_ITEMS.filter(
     (item) => !item.roles || (user && item.roles.includes(user.role))
   );
 
-  const initials = user?.email
-    ? user.email.slice(0, 2).toUpperCase()
-    : "FA";
+  const initials = user?.email ? user.email.slice(0, 2).toUpperCase() : "FA";
 
   const roleBadge: Record<UserRole, string> = {
-    STUDENT: "Student",
-    FACULTY: "Faculty",
+    STUDENT:          "Student",
+    FACULTY:          "Faculty",
     DEPARTMENT_ADMIN: "Dept Admin",
-    SUPER_ADMIN: "Super Admin",
+    SUPER_ADMIN:      "Super Admin",
   };
 
   return (
-    <aside className="w-64 flex-shrink-0 bg-slate-900/80 border-r border-white/5 flex flex-col h-screen sticky top-0">
+    <>
       {/* Logo */}
       <div className="px-5 py-5 border-b border-white/5">
         <div className="flex items-center gap-3">
@@ -94,9 +99,10 @@ export function Sidebar() {
           <NavLink
             key={item.to}
             to={item.to}
+            onClick={onNavClick}
             className={({ isActive }) =>
               cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all group",
+                "flex items-center gap-3 px-3 py-3 lg:py-2.5 rounded-lg text-sm font-medium transition-all group",
                 isActive
                   ? "bg-white/10 text-white"
                   : "text-slate-400 hover:text-white hover:bg-white/5"
@@ -137,7 +143,8 @@ export function Sidebar() {
         {/* Settings + Logout */}
         <NavLink
           to="/settings"
-          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-all"
+          onClick={onNavClick}
+          className="flex items-center gap-3 px-3 py-2.5 lg:py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-all"
         >
           <Settings size={15} />
           <span>Settings</span>
@@ -145,12 +152,103 @@ export function Sidebar() {
         <button
           onClick={() => logout.mutate()}
           disabled={logout.isPending}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
+          className="w-full flex items-center gap-3 px-3 py-2.5 lg:py-2 rounded-lg text-sm text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
         >
           <LogOut size={15} />
           <span>{logout.isPending ? "Signing out…" : "Sign out"}</span>
         </button>
       </div>
-    </aside>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Exported Sidebar — desktop fixed + mobile hamburger drawer
+// ---------------------------------------------------------------------------
+export function Sidebar() {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const location = useLocation();
+
+  // Close drawer on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
+
+  // Prevent body scroll when drawer is open
+  useEffect(() => {
+    document.body.style.overflow = mobileOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [mobileOpen]);
+
+  return (
+    <>
+      {/* ------------------------------------------------------------------ */}
+      {/* Desktop sidebar — hidden on mobile                                  */}
+      {/* ------------------------------------------------------------------ */}
+      <aside className="hidden lg:flex w-64 flex-shrink-0 bg-slate-900/80 border-r border-white/5 flex-col h-screen sticky top-0">
+        <SidebarContent />
+      </aside>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Mobile topbar with hamburger                                        */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="lg:hidden fixed top-0 inset-x-0 z-40 flex items-center gap-3
+                      px-4 h-14 bg-slate-900/95 backdrop-blur border-b border-white/5">
+        <button
+          id="sidebar-hamburger"
+          aria-label="Open navigation"
+          onClick={() => setMobileOpen(true)}
+          className="w-10 h-10 flex items-center justify-center rounded-lg
+                     text-slate-400 hover:text-white hover:bg-white/5 transition-all"
+        >
+          <Menu size={20} />
+        </button>
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded bg-white/10 flex items-center justify-center">
+            <Scan size={12} className="text-white" />
+          </div>
+          <span className="text-white text-sm font-bold tracking-tight">FaceAttend</span>
+        </div>
+      </div>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Mobile: spacer so content doesn't hide behind topbar                */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="lg:hidden h-14 flex-shrink-0" />
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Mobile drawer                                                        */}
+      {/* ------------------------------------------------------------------ */}
+      {/* Backdrop */}
+      {mobileOpen && (
+        <div
+          className="lg:hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Drawer panel */}
+      <aside
+        className={cn(
+          "lg:hidden fixed top-0 left-0 bottom-0 z-50 w-72 flex flex-col",
+          "bg-slate-900 border-r border-white/8",
+          "transition-transform duration-300 ease-in-out",
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        {/* Close button */}
+        <button
+          id="sidebar-close"
+          aria-label="Close navigation"
+          onClick={() => setMobileOpen(false)}
+          className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center
+                     rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-all"
+        >
+          <X size={16} />
+        </button>
+
+        <SidebarContent onNavClick={() => setMobileOpen(false)} />
+      </aside>
+    </>
   );
 }
