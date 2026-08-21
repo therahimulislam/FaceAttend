@@ -101,6 +101,17 @@ class LoginView(APIView):
                             code = err.code
                         message = str(err)
                         break
+            # Phase 17 — audit security event on login failure
+            try:
+                from apps.audit.service import AuditService
+                email_attempt = request.data.get("email", "unknown")
+                AuditService.security_event(
+                    request=request,
+                    description=f"Failed login attempt for '{email_attempt}'. Code: {code}",
+                    metadata={"email": email_attempt, "code": code},
+                )
+            except Exception:
+                pass
             return error_response(
                 message=message,
                 code=code,

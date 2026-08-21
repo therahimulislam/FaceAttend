@@ -37,5 +37,5 @@ urlpatterns = [
     path("reports/", include("apps.analytics.urls")),
 
     # Audit (Phase 17)
-    # path("audit-logs/", include("apps.audit.urls")),
+    path("audit-logs/", include("apps.audit.urls")),
 ]

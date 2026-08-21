@@ -27,6 +27,7 @@ import RoomsPage from "@/pages/admin/RoomsPage";
 import AdminTimetablePage from "@/pages/admin/TimetablePage";
 import ReportsPage from "@/pages/admin/ReportsPage";  // Phase 15
 import NotificationsPage from "@/pages/NotificationsPage";  // Phase 16
+import AuditLogsPage from "@/pages/admin/AuditLogsPage";  // Phase 17
 
 // Faculty pages
 import FacultyDashboard from "@/pages/faculty/FacultyDashboard";  // Phase 14
@@ -105,6 +106,7 @@ export const router = createBrowserRouter([
           { path: "/admin/timetable",   element: <AdminTimetablePage /> },
           { path: "/admin/reports",         element: <ReportsPage /> },  // Phase 15
           { path: "/admin/notifications",    element: <NotificationsPage /> },  // Phase 16
+          { path: "/admin/audit-logs",       element: <AuditLogsPage /> },  // Phase 17
         ],
       },
     ],

@@ -107,6 +107,13 @@ class StudentViewSet(viewsets.ReadOnlyModelViewSet):
         except Exception:
             pass
 
+        # Phase 17 — audit log
+        try:
+            from apps.audit.service import AuditService
+            AuditService.student_approved(request, student)
+        except Exception:
+            pass
+
         return success_response(
             data=StudentSerializer(student).data,
             message=f"{student.full_name} has been approved.",
@@ -137,6 +144,13 @@ class StudentViewSet(viewsets.ReadOnlyModelViewSet):
             NotificationService.registration_rejected(
                 student, reason=student.rejection_reason
             )
+        except Exception:
+            pass
+
+        # Phase 17 — audit log
+        try:
+            from apps.audit.service import AuditService
+            AuditService.student_rejected(request, student, reason=student.rejection_reason)
         except Exception:
             pass
 

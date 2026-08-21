@@ -15,6 +15,7 @@ import {
   LogOut,
   Scan,
   ChevronRight,
+  ShieldCheck,  // Phase 17
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
@@ -43,6 +44,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "My Timetable", to: "/faculty/timetable", icon: Calendar,        roles: ["FACULTY"] },
   { label: "Attendance",   to: "/faculty/attendance", icon: CheckSquare,   roles: ["FACULTY"] },
   { label: "Reports",      to: "/admin/reports",     icon: BarChart3,       roles: ["SUPER_ADMIN", "DEPARTMENT_ADMIN"] },  // Phase 15
+  { label: "Audit Logs",   to: "/admin/audit-logs",  icon: ShieldCheck,     roles: ["SUPER_ADMIN", "DEPARTMENT_ADMIN"] },  // Phase 17
   { label: "Reports",      to: "/faculty/reports",   icon: BarChart3,       roles: ["FACULTY"] },  // Phase 15
 
   // Student
