@@ -100,12 +100,33 @@ class TimetableViewSet(viewsets.ModelViewSet):
         return [IsAdminUser()]
 
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        instance = serializer.save(created_by=self.request.user)
+        try:
+            from apps.audit.service import AuditService
+            AuditService.timetable_change(
+                self.request, "created", str(instance.id),
+                new_value={
+                    "subject": instance.subject.code if instance.subject_id else None,
+                    "day": instance.day,
+                    "start_time": str(instance.start_time),
+                },
+            )
+        except Exception:
+            pass
 
     def perform_destroy(self, instance):
         """Soft-delete: mark inactive instead of removing."""
         instance.is_active = False
         instance.save(update_fields=["is_active", "updated_at"])
+        try:
+            from apps.audit.service import AuditService
+            AuditService.timetable_change(
+                self.request, "deactivated", str(instance.id),
+                old_value={"is_active": True},
+                new_value={"is_active": False},
+            )
+        except Exception:
+            pass
 
     def create(self, request, *args, **kwargs):
         serializer = TimetableEntryWriteSerializer(data=request.data, context={"request": request})

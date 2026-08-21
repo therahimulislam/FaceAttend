@@ -84,9 +84,43 @@ class SubjectViewSet(viewsets.ModelViewSet):
             return [permissions.AllowAny()]
         return [IsAdminUser()]
 
+    def perform_create(self, serializer):
+        instance = serializer.save()
+        try:
+            from apps.audit.service import AuditService
+            AuditService.subject_change(
+                self.request, "created", instance.code,
+                new_value={"code": instance.code, "name": instance.name},
+            )
+        except Exception:
+            pass
+
+    def perform_update(self, serializer):
+        old = {"code": serializer.instance.code, "name": serializer.instance.name}
+        instance = serializer.save()
+        try:
+            from apps.audit.service import AuditService
+            AuditService.subject_change(
+                self.request, "updated", instance.code,
+                old_value=old,
+                new_value={"code": instance.code, "name": instance.name},
+            )
+        except Exception:
+            pass
+
     def perform_destroy(self, instance):
+        old_status = instance.status
         instance.status = "INACTIVE"
         instance.save(update_fields=["status", "updated_at"])
+        try:
+            from apps.audit.service import AuditService
+            AuditService.subject_change(
+                self.request, "deactivated", instance.code,
+                old_value={"status": old_status},
+                new_value={"status": "INACTIVE"},
+            )
+        except Exception:
+            pass
 
 
 class RoomViewSet(viewsets.ModelViewSet):

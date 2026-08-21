@@ -408,6 +408,16 @@ class AttendanceSessionViewSet(viewsets.ModelViewSet):
                             )
                         except Exception:
                             pass
+                        try:
+                            from apps.audit.service import AuditService
+                            AuditService.suspicious_attempt(
+                                request=request,
+                                student=student,
+                                subject_code=session.subject.code,
+                                reason="Face mismatch detected.",
+                            )
+                        except Exception:
+                            pass
                         return error_response(
                             message=(
                                 "Face verification failed. The face in the photo does not match "
