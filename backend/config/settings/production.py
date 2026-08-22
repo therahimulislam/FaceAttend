@@ -42,7 +42,9 @@ X_FRAME_OPTIONS                 = "DENY"
 # Disable server-side cursors (not supported by pgBouncer transaction mode)
 # ---------------------------------------------------------------------------
 DATABASES["default"]["DISABLE_SERVER_SIDE_CURSORS"] = True  # noqa: F405
-DATABASES["default"]["CONN_MAX_AGE"] = 60  # noqa: F405
+# With Supabase transaction pooler (pgBouncer / Supavisor), disable persistent connections
+# so Django immediately releases connections back to the pool after each request.
+DATABASES["default"]["CONN_MAX_AGE"] = int(os.environ.get("DB_CONN_MAX_AGE", 0))  # noqa: F405
 
 # ---------------------------------------------------------------------------
 # Static files (WhiteNoise — serves pre-compressed files)
