@@ -149,7 +149,7 @@ export const academicYearsApi = {
     return res.data.data;
   },
   create: async (data: Partial<AcademicYear>): Promise<AcademicYear> => {
-    const res = await api.post<AcademicYear>("/academics/years/", data);
-    return res.data;
+    const res = await api.post<{ success: boolean; data: AcademicYear }>("/academics/years/", data);
+    return res.data.data;
   },
 };

@@ -31,6 +31,7 @@ import AuditLogsPage from "@/pages/admin/AuditLogsPage";      // Phase 17
 import AdminAIInsightsPage from "@/pages/admin/AdminAIInsightsPage"; // Phase 18
 import SemestersPage from "@/pages/admin/SemestersPage";
 import SectionsPage from "@/pages/admin/SectionsPage";
+import AcademicYearsPage from "@/pages/admin/AcademicYearsPage";
 
 // Faculty pages
 import FacultyDashboard from "@/pages/faculty/FacultyDashboard";  // Phase 14
@@ -108,6 +109,7 @@ export const router = createBrowserRouter([
           { path: "/admin/students",         element: <StudentsPage /> },
           { path: "/admin/faculty",          element: <FacultyPage /> },
           { path: "/admin/departments",      element: <DepartmentsPage /> },
+          { path: "/admin/academic-years",   element: <AcademicYearsPage /> },
           { path: "/admin/semesters",        element: <SemestersPage /> },
           { path: "/admin/sections",         element: <SectionsPage /> },
           { path: "/admin/subjects",         element: <SubjectsPage /> },
