@@ -17,7 +17,6 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.views import TokenRefreshView as SimpleJWTRefreshView
-from apps.common.throttles import LoginRateThrottle  # Phase 20
 
 from apps.common.responses import (
     success_response, created_response, error_response, unauthorized_response
@@ -48,7 +47,9 @@ class RegisterView(APIView):
     Requires admin approval before the student can mark attendance.
     """
     permission_classes = [AllowAny]
-    throttle_classes   = [LoginRateThrottle]  # Phase 20: 10/min per IP
+    # Throttling controlled globally via DEFAULT_THROTTLE_CLASSES (Phase 20)
+    # In production: login scope (10/min) via REST_FRAMEWORK settings
+    # In dev/test:   disabled via development.py REST_FRAMEWORK override
 
     def post(self, request: Request):
         serializer = StudentRegisterSerializer(data=request.data)
@@ -82,7 +83,7 @@ class LoginView(APIView):
     The role field in the response determines which dashboard to show.
     """
     permission_classes = [AllowAny]
-    throttle_classes   = [LoginRateThrottle]  # Phase 20: 10/min per IP
+    # Throttling controlled globally via DEFAULT_THROTTLE_CLASSES (Phase 20)
 
     def post(self, request: Request):
         serializer = LoginSerializer(data=request.data, context={"request": request})
