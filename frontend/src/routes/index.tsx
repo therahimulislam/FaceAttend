@@ -52,6 +52,8 @@ function GuestOnly() {
   return <Navigate to="/admin/dashboard" replace />;
 }
 
+import SettingsPage from "@/pages/SettingsPage";
+
 /** Require authentication + optional role check */
 function RequireAuth({ allowedRoles }: { allowedRoles?: UserRole[] }) {
   const { isAuthenticated, user } = useAuthStore();
@@ -60,6 +62,15 @@ function RequireAuth({ allowedRoles }: { allowedRoles?: UserRole[] }) {
     return <Navigate to="/unauthorized" replace />;
   }
   return <Outlet />;
+}
+
+// Shared authenticated routes (Settings)
+function SharedAuthRoutes() {
+  return (
+    <AppLayout>
+      <Outlet />
+    </AppLayout>
+  );
 }
 
 export const router = createBrowserRouter([
@@ -149,6 +160,21 @@ export const router = createBrowserRouter([
           { path: "/student/reports",        element: <ReportsPage /> },  // Phase 15
           { path: "/student/notifications",   element: <NotificationsPage /> },  // Phase 16
           { path: "/student/ai-insights",      element: <StudentAIInsightsPage /> },  // Phase 18
+        ],
+      },
+    ],
+  },
+
+  // ---------------------------------------------------------------------------
+  // Shared authenticated routes
+  // ---------------------------------------------------------------------------
+  {
+    element: <RequireAuth />,
+    children: [
+      {
+        element: <SharedAuthRoutes />,
+        children: [
+          { path: "/settings", element: <SettingsPage /> },
         ],
       },
     ],
