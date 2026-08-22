@@ -12,6 +12,7 @@ class StudentSerializer(serializers.ModelSerializer):
     department_display = serializers.SerializerMethodField()
     semester_display = serializers.SerializerMethodField()
     section_display = serializers.SerializerMethodField()
+    overall_attendance = serializers.SerializerMethodField()
 
     class Meta:
         model = Student
@@ -23,12 +24,13 @@ class StudentSerializer(serializers.ModelSerializer):
             "section", "section_display",
             "department_name", "semester_name", "section_name",
             "approval_status", "approved_at", "rejection_reason",
+            "overall_attendance",
             "created_at", "updated_at",
         )
         read_only_fields = (
             "id", "user_id", "email", "user_status",
             "department_display", "semester_display", "section_display",
-            "created_at", "updated_at",
+            "created_at", "updated_at", "overall_attendance"
         )
 
     def get_department_display(self, obj):
@@ -39,6 +41,13 @@ class StudentSerializer(serializers.ModelSerializer):
 
     def get_section_display(self, obj):
         return obj.display_section
+
+    def get_overall_attendance(self, obj):
+        total = getattr(obj, "total_sessions", 0)
+        if total == 0:
+            return 0.0
+        attended = getattr(obj, "attended_sessions", 0)
+        return round((attended / total) * 100, 1)
 
 
 class StudentMinimalSerializer(serializers.ModelSerializer):

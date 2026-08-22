@@ -26,6 +26,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import type { Student, ApprovalStatus } from "@/types";
+import { useAuthStore } from "@/store/authStore";
 
 // ── Status config ──────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<
@@ -256,6 +257,7 @@ function StudentRow({
   onSuspend,
   onComplete,
   onDelete,
+  isFaculty,
 }: {
   student: Student;
   onApprove:  (student: Student) => void;
@@ -263,9 +265,13 @@ function StudentRow({
   onSuspend:  (id: string) => void;
   onComplete: (id: string) => void;
   onDelete:   (student: Student) => void;
+  isFaculty: boolean;
 }) {
   const cfg = STATUS_CONFIG[student.approval_status];
   const Icon = cfg.icon;
+
+  const pct = student.overall_attendance ?? 0;
+  const pctColor = pct >= 75 ? "text-emerald-400" : pct >= 60 ? "text-amber-400" : "text-red-400";
 
   return (
     <tr className="border-b border-white/5 hover:bg-white/3 transition-colors group">
@@ -300,10 +306,17 @@ function StudentRow({
           })}
         </span>
       </td>
+      {/* Attendance % */}
+      <td className="px-4 py-3">
+        <span className={`font-semibold text-sm ${pctColor}`}>
+          {pct}%
+        </span>
+      </td>
       {/* Actions */}
       <td className="px-4 py-3">
-        <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity flex-wrap">
-          {student.approval_status === "PENDING" && (
+        {!isFaculty && (
+          <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity flex-wrap">
+            {student.approval_status === "PENDING" && (
             <>
               <Button size="sm"
                 className="h-7 px-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs"
@@ -344,6 +357,7 @@ function StudentRow({
             <Trash2 size={11} />
           </Button>
         </div>
+        )}
       </td>
     </tr>
   );
@@ -356,6 +370,8 @@ export default function StudentsPage() {
   const [approveTarget, setApproveTarget]       = useState<Student | null>(null);
   const [deleteTarget, setDeleteTarget]         = useState<Student | null>(null);
   const queryClient = useQueryClient();
+  const user = useAuthStore((s: any) => s.user);
+  const isFaculty = user?.role === "FACULTY";
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["admin-students", search, statusFilter],
@@ -463,7 +479,7 @@ export default function StudentsPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/8">
-                {["Student", "Student ID", "Department / Section", "Status", "Registered", "Actions"].map((h) => (
+                {["Student", "Student ID", "Department / Section", "Status", "Registered", "Attendance %", "Actions"].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                     {h}
                   </th>
@@ -480,6 +496,7 @@ export default function StudentsPage() {
                   onSuspend={(id) => suspendMutation.mutate(id)}
                   onComplete={(id) => completeMutation.mutate(id)}
                   onDelete={setDeleteTarget}
+                  isFaculty={isFaculty}
                 />
               ))}
             </tbody>

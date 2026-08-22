@@ -41,7 +41,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   // Admin / Faculty shared
   { label: "Dashboard",    to: "/admin/dashboard",   icon: LayoutDashboard, roles: ["SUPER_ADMIN", "DEPARTMENT_ADMIN"] },
-  { label: "Students",     to: "/admin/students",    icon: GraduationCap,   roles: ["SUPER_ADMIN", "DEPARTMENT_ADMIN"] },
+  { label: "Students",     to: "/admin/students",    icon: GraduationCap,   roles: ["SUPER_ADMIN", "DEPARTMENT_ADMIN", "FACULTY"] },
   { label: "Faculty",      to: "/admin/faculty",     icon: Users,           roles: ["SUPER_ADMIN", "DEPARTMENT_ADMIN"] },
   { label: "Departments",  to: "/admin/departments", icon: BookOpen,        roles: ["SUPER_ADMIN", "DEPARTMENT_ADMIN"] },
   { label: "Semesters",    to: "/admin/semesters",   icon: CalendarDays,    roles: ["SUPER_ADMIN", "DEPARTMENT_ADMIN"] },

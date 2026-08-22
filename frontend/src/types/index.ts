@@ -47,6 +47,7 @@ export interface Student {
   approval_status: ApprovalStatus;
   approved_at: string | null;
   rejection_reason: string;
+  overall_attendance: number;
   created_at: string;
   updated_at: string;
 }

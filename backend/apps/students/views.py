@@ -5,6 +5,7 @@ Admin endpoints for listing and managing student registrations,
 plus a student self-service endpoint for their own profile.
 """
 from django.utils import timezone
+from django.db.models import Count, Q
 from django_filters import rest_framework as django_filters
 from rest_framework import viewsets, status, permissions, filters
 from rest_framework.decorators import action
@@ -49,6 +50,9 @@ class StudentViewSet(viewsets.ModelViewSet):
     """
     queryset = Student.objects.select_related(
         "user", "department", "semester", "section"
+    ).annotate(
+        total_sessions=Count('attendance_records'),
+        attended_sessions=Count('attendance_records', filter=Q(attendance_records__status__in=['PRESENT', 'LATE']))
     ).all()
     serializer_class = StudentSerializer
     pagination_class = StandardPagination
