@@ -7,6 +7,10 @@ import os
 
 DEBUG = False
 
+# Automatically add Render's dynamic hostname to ALLOWED_HOSTS
+if "RENDER_EXTERNAL_HOSTNAME" in os.environ:
+    ALLOWED_HOSTS.append(os.environ["RENDER_EXTERNAL_HOSTNAME"])
+
 # ---------------------------------------------------------------------------
 # Security headers (Phase 20: complete set)
 # ---------------------------------------------------------------------------
