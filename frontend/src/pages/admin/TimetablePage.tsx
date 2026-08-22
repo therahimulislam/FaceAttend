@@ -7,7 +7,7 @@
  *  - Filter by department → semester → section
  *  - Soft-delete with confirmation
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -60,7 +60,7 @@ function EntryFormModal({
   const [conflicts, setConflicts] = useState<string[]>([]);
 
   const { data: depts } = useQuery({ queryKey: ["departments", "all"], queryFn: () => departmentsApi.list({ status: "ACTIVE", page_size: 100 }) });
-  const [selectedDept, setSelectedDept] = useState(editTarget?.department_name ? "" : "");
+  const [selectedDept, setSelectedDept] = useState("");
   const [selectedSem, setSelectedSem] = useState("");
 
   const { data: semesters } = useQuery({
@@ -74,6 +74,21 @@ function EntryFormModal({
     queryFn: () => sectionsApi.list({ semester: selectedSem, page_size: 100 }),
     enabled: !!selectedSem,
   });
+
+  // Auto-resolve parent IDs when editing (since editTarget only has parent names, not IDs)
+  useEffect(() => {
+    if (isEdit && editTarget && depts && !selectedDept) {
+      const deptMatch = depts.results.find(d => d.name === editTarget.department_name);
+      if (deptMatch) setSelectedDept(deptMatch.id);
+    }
+  }, [isEdit, editTarget, depts, selectedDept]);
+
+  useEffect(() => {
+    if (isEdit && editTarget && semesters && !selectedSem) {
+      const semMatch = semesters.results.find(s => s.name === editTarget.semester_name);
+      if (semMatch) setSelectedSem(semMatch.id);
+    }
+  }, [isEdit, editTarget, semesters, selectedSem]);
 
   const { data: subjects } = useQuery({
     queryKey: ["subjects-for-timetable", selectedDept],
