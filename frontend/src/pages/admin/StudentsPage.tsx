@@ -10,7 +10,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
   CheckCircle, XCircle, Clock, Ban, Search, RefreshCw,
-  GraduationCap, Loader2, AlertCircle, Trash2, Award, ShieldAlert,
+  GraduationCap, Loader2, AlertCircle, Trash2, Award, Edit2, ShieldAlert,
 } from "lucide-react";
 import { studentsApi } from "@/features/students/api";
 import { departmentsApi } from "@/features/departments/api";
@@ -63,11 +63,13 @@ function ApproveStudentModal({
   onClose,
   onConfirm,
   isLoading,
+  mode,
 }: {
   student: Student;
   onClose: () => void;
   onConfirm: (data: ApproveFormData) => void;
   isLoading: boolean;
+  mode?: "approve" | "edit";
 }) {
   const { control, handleSubmit, watch, formState: { errors } } = useForm<ApproveFormData>({
     resolver: zodResolver(approveSchema),
@@ -98,12 +100,15 @@ function ApproveStudentModal({
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md bg-slate-900 border-white/10 shadow-2xl">
         <DialogHeader>
-          <DialogTitle>Approve &amp; Allot Student</DialogTitle>
-          <DialogDescription className="text-slate-400">
-            Assign <span className="text-white font-medium">{student.full_name}</span> to their
-            department, semester and section before approving.
+          <DialogTitle className="text-white">
+            {mode === "edit" ? "Edit Student Details" : "Approve Student"}
+          </DialogTitle>
+          <DialogDescription className="text-slate-400 text-sm">
+            {mode === "edit"
+              ? "Update the student's department, semester and section."
+              : "Please verify the student's claimed details and formally assign a department, semester and section before approving."}
           </DialogDescription>
         </DialogHeader>
 
@@ -200,7 +205,7 @@ function ApproveStudentModal({
             <Button type="submit" size="sm"
               className="bg-emerald-600 hover:bg-emerald-500 text-white" disabled={isLoading}>
               {isLoading && <Loader2 className="animate-spin" size={13} />}
-              Confirm Approval
+              {mode === "edit" ? "Save Changes" : "Confirm Approval"}
             </Button>
           </DialogFooter>
         </form>
@@ -253,6 +258,7 @@ function DeleteConfirmModal({
 function StudentRow({
   student,
   onApprove,
+  onEdit,
   onReject,
   onSuspend,
   onComplete,
@@ -260,12 +266,13 @@ function StudentRow({
   isFaculty,
 }: {
   student: Student;
-  onApprove:  (student: Student) => void;
-  onReject:   (id: string) => void;
-  onSuspend:  (id: string) => void;
-  onComplete: (id: string) => void;
-  onDelete:   (student: Student) => void;
   isFaculty: boolean;
+  onApprove: (student: Student) => void;
+  onEdit: (student: Student) => void;
+  onReject: (id: string) => void;
+  onSuspend: (id: string) => void;
+  onComplete: (id: string) => void;
+  onDelete: (student: Student) => void;
 }) {
   const cfg = STATUS_CONFIG[student.approval_status];
   const Icon = cfg.icon;
@@ -333,6 +340,11 @@ function StudentRow({
           {student.approval_status === "APPROVED" && (
             <>
               <Button size="sm" variant="outline"
+                className="h-7 px-2.5 text-xs border-white/10 text-slate-300 hover:bg-white/5"
+                onClick={() => onEdit(student)}>
+                <Edit2 size={11} /> Edit
+              </Button>
+              <Button size="sm" variant="outline"
                 className="h-7 px-2.5 text-xs border-amber-700/40 text-amber-400 hover:bg-amber-950/30"
                 onClick={() => onSuspend(student.id)}>
                 <ShieldAlert size={11} /> Suspend
@@ -368,6 +380,7 @@ export default function StudentsPage() {
   const [search, setSearch]                     = useState("");
   const [statusFilter, setStatusFilter]         = useState("");
   const [approveTarget, setApproveTarget]       = useState<Student | null>(null);
+  const [editTarget, setEditTarget]             = useState<Student | null>(null);
   const [deleteTarget, setDeleteTarget]         = useState<Student | null>(null);
   const queryClient = useQueryClient();
   const user = useAuthStore((s: any) => s.user);
@@ -388,6 +401,15 @@ export default function StudentsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-students"] });
       setApproveTarget(null);
+    },
+  });
+
+  const editMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: ApproveFormData }) =>
+      studentsApi.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-students"] });
+      setEditTarget(null);
     },
   });
 
@@ -492,6 +514,7 @@ export default function StudentsPage() {
                   key={student.id}
                   student={student}
                   onApprove={setApproveTarget}
+                  onEdit={setEditTarget}
                   onReject={(id) => rejectMutation.mutate(id)}
                   onSuspend={(id) => suspendMutation.mutate(id)}
                   onComplete={(id) => completeMutation.mutate(id)}
@@ -508,11 +531,25 @@ export default function StudentsPage() {
       {approveTarget && (
         <ApproveStudentModal
           student={approveTarget}
+          mode="approve"
           onClose={() => setApproveTarget(null)}
-          onConfirm={(formData) =>
-            approveMutation.mutate({ id: approveTarget.id, data: formData })
+          onConfirm={(data) =>
+            approveMutation.mutate({ id: approveTarget.id, data })
           }
           isLoading={approveMutation.isPending}
+        />
+      )}
+
+      {/* Edit Modal */}
+      {editTarget && (
+        <ApproveStudentModal
+          student={editTarget}
+          mode="edit"
+          onClose={() => setEditTarget(null)}
+          onConfirm={(data) =>
+            editMutation.mutate({ id: editTarget.id, data })
+          }
+          isLoading={editMutation.isPending}
         />
       )}
 

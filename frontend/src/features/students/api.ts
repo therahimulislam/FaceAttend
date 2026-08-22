@@ -25,6 +25,11 @@ export const studentsApi = {
     return res.data.data;
   },
 
+  update: async (id: string, data: Partial<Student>): Promise<Student> => {
+    const res = await api.patch<{ success: boolean; data: Student }>(`/students/${id}/`, data);
+    return res.data.data;
+  },
+
   approve: async (id: string, data?: { department?: string; semester?: string; section?: string }): Promise<Student> => {
     const res = await api.post<{ success: boolean; data: Student }>(`/students/${id}/approve/`, data ?? {});
     return res.data.data;
