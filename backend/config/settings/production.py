@@ -4,12 +4,19 @@ Phase 20: Enhanced with full security headers, rate limiting, monitoring.
 """
 from .base import *  # noqa: F401, F403
 import os
-
 DEBUG = False
 
 # Automatically add Render's dynamic hostname to ALLOWED_HOSTS
 if "RENDER_EXTERNAL_HOSTNAME" in os.environ:
     ALLOWED_HOSTS.append(os.environ["RENDER_EXTERNAL_HOSTNAME"])
+
+# Render's internal health check pings use the container's internal IP address.
+# We must allow this internal IP or Django returns 400 Bad Request (DisallowedHost).
+import socket
+try:
+    ALLOWED_HOSTS.append(socket.gethostbyname(socket.gethostname()))
+except Exception:
+    pass
 
 # ---------------------------------------------------------------------------
 # Security headers (Phase 20: complete set)
