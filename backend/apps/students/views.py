@@ -36,7 +36,7 @@ class StudentFilter(django_filters.FilterSet):
         fields = ["approval_status", "department", "semester", "section"]
 
 
-class StudentViewSet(viewsets.ReadOnlyModelViewSet):
+class StudentViewSet(viewsets.ModelViewSet):
     """
     GET /api/v1/students/         — list students (admin/faculty)
     GET /api/v1/students/{id}/    — retrieve student (admin/faculty)
@@ -44,6 +44,8 @@ class StudentViewSet(viewsets.ReadOnlyModelViewSet):
     POST /api/v1/students/{id}/approve/  — approve (admin)
     POST /api/v1/students/{id}/reject/   — reject (admin)
     POST /api/v1/students/{id}/suspend/  — suspend (admin)
+    POST /api/v1/students/{id}/complete/ — mark as completed/graduated (admin)
+    DELETE /api/v1/students/{id}/        — permanently delete student (admin)
     """
     queryset = Student.objects.select_related(
         "user", "department", "semester", "section"
@@ -171,4 +173,65 @@ class StudentViewSet(viewsets.ReadOnlyModelViewSet):
         return success_response(
             data=StudentSerializer(student).data,
             message=f"{student.full_name}'s account has been suspended.",
+        )
+
+    @action(detail=True, methods=["post"], permission_classes=[IsSuperAdminOrDeptAdmin])
+    def complete(self, request: Request, pk=None):
+        """POST /api/v1/students/{id}/complete/ — mark student as graduated/completed."""
+        student = self.get_object()
+        student.approval_status = ApprovalStatus.COMPLETED
+        student.save(update_fields=["approval_status", "updated_at"])
+
+        # Phase 16 — notify student
+        try:
+            from apps.notifications.service import NotificationService
+            NotificationService.create(
+                recipient=student.user,
+                notification_type="GENERAL",
+                title="Account Marked as Completed",
+                message="Your student profile has been marked as completed by the administrator.",
+            )
+        except Exception:
+            pass
+
+        # Phase 17 — audit log
+        try:
+            from apps.audit.service import AuditService
+            AuditService.log(
+                request=request,
+                action="STUDENT_COMPLETED",
+                description=f"Student {student.full_name} ({student.student_id}) marked as completed.",
+                content_object=student,
+            )
+        except Exception:
+            pass
+
+        return success_response(
+            data=StudentSerializer(student).data,
+            message=f"{student.full_name} has been marked as completed.",
+        )
+
+    def destroy(self, request: Request, *args, **kwargs):
+        """DELETE /api/v1/students/{id}/ — permanently delete a student and their user account."""
+        student = self.get_object()
+        user = student.user
+        full_name = student.full_name
+        student_id = student.student_id
+
+        # Phase 17 — audit log before deletion
+        try:
+            from apps.audit.service import AuditService
+            AuditService.log(
+                request=request,
+                action="STUDENT_DELETED",
+                description=f"Student {full_name} ({student_id}) permanently deleted.",
+            )
+        except Exception:
+            pass
+
+        # Cascade: deleting the user will cascade-delete the student profile
+        user.delete()
+
+        return success_response(
+            message=f"{full_name} has been permanently deleted.",
         )

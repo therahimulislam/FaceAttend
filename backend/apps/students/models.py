@@ -14,6 +14,7 @@ class ApprovalStatus(models.TextChoices):
     APPROVED = "APPROVED", "Approved"
     REJECTED = "REJECTED", "Rejected"
     SUSPENDED = "SUSPENDED", "Suspended"
+    COMPLETED = "COMPLETED", "Completed"
 
 
 class Student(models.Model):

@@ -40,6 +40,15 @@ export const studentsApi = {
     return res.data.data;
   },
 
+  complete: async (id: string): Promise<Student> => {
+    const res = await api.post<{ success: boolean; data: Student }>(`/students/${id}/complete/`);
+    return res.data.data;
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/students/${id}/`);
+  },
+
   me: async (): Promise<Student> => {
     const res = await api.get<{ success: boolean; data: Student }>("/students/me/");
     return res.data.data;

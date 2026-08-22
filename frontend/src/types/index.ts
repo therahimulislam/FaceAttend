@@ -25,7 +25,7 @@ export interface AuthTokens {
 // ---------------------------------------------------------------------------
 // Student
 // ---------------------------------------------------------------------------
-export type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED";
+export type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED" | "COMPLETED";
 
 export interface Student {
   id: string;
