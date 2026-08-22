@@ -8,7 +8,7 @@ class FacultySerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source="user.email", read_only=True)
     user_id = serializers.UUIDField(source="user.id", read_only=True)
     department_name = serializers.CharField(source="department.name", read_only=True)
-    user_status = serializers.CharField(source="user.status", read_only=True)
+    user_status = serializers.CharField(source="user.status", required=False)
 
     class Meta:
         model = Faculty
@@ -16,7 +16,14 @@ class FacultySerializer(serializers.ModelSerializer):
                   "full_name", "phone", "department", "department_name",
                   "designation", "is_hod", "created_at")
         read_only_fields = ("id", "email", "user_id", "department_name",
-                            "user_status", "created_at")
+                            "created_at")
+
+    def update(self, instance, validated_data):
+        user_data = validated_data.pop("user", None)
+        if user_data and "status" in user_data:
+            instance.user.status = user_data["status"]
+            instance.user.save(update_fields=["status"])
+        return super().update(instance, validated_data)
 
 
 class CreateFacultySerializer(serializers.Serializer):

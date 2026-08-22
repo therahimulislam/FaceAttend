@@ -21,4 +21,11 @@ export const facultyApi = {
     const res = await api.post<{ success: boolean; data: Faculty }>("/faculty/", data);
     return res.data.data;
   },
+  update: async (id: string, data: Partial<Faculty>): Promise<Faculty> => {
+    const res = await api.patch<{ success: boolean; data: Faculty }>(`/faculty/${id}/`, data);
+    return res.data.data;
+  },
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/faculty/${id}/`);
+  },
 };

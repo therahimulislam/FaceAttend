@@ -8,7 +8,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
-  Users, Search, RefreshCw, Plus, Loader2, Eye, EyeOff, Briefcase,
+  Users, Search, RefreshCw, Plus, Loader2, Briefcase, Edit2, Trash2, Eye, EyeOff
 } from "lucide-react";
 import { facultyApi } from "@/features/faculty/api";
 import { departmentsApi } from "@/features/departments/api";
@@ -20,10 +20,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Faculty } from "@/types";
 
-// ── Create Faculty Schema ──────────────────────────────────────────────────────
-const createSchema = z.object({
-  email:       z.string().email("Enter a valid email address"),
-  password:    z.string().min(8, "Password must be at least 8 characters"),
+// ── Schemas ──────────────────────────────────────────────────────
+const baseSchema = z.object({
   employee_id: z.string().min(1, "Employee ID is required"),
   full_name:   z.string().min(2, "Full name is required"),
   phone:       z.string().optional(),
@@ -31,14 +29,24 @@ const createSchema = z.object({
   designation: z.string().optional(),
   is_hod:      z.boolean().default(false),
 });
-type CreateFormData = z.infer<typeof createSchema>;
+const createSchema = baseSchema.extend({
+  email:       z.string().email("Enter a valid email address"),
+  password:    z.string().min(8, "Password must be at least 8 characters"),
+});
+const updateSchema = baseSchema.extend({
+  user_status: z.string().optional(),
+});
 
-// ── Create Faculty Modal ───────────────────────────────────────────────────────
-function CreateFacultyModal({
-  onClose, onSaved,
+type CreateFormData = z.infer<typeof createSchema>;
+type UpdateFormData = z.infer<typeof updateSchema>;
+
+// ── Faculty Form Modal (Create/Edit) ───────────────────────────────────────────────────────
+function FacultyFormModal({
+  onClose, onSaved, editTarget,
 }: {
-  onClose: () => void; onSaved: () => void;
+  onClose: () => void; onSaved: () => void; editTarget?: Faculty;
 }) {
+  const isEdit = !!editTarget;
   const [showPassword, setShowPassword] = useState(false);
   const [serverError,  setServerError]  = useState("");
 
@@ -48,16 +56,28 @@ function CreateFacultyModal({
   });
 
   const { register, handleSubmit, control, reset, formState: { errors, isSubmitting } } =
-    useForm<CreateFormData>({
-      resolver: zodResolver(createSchema),
-      defaultValues: { is_hod: false },
+    useForm<CreateFormData | UpdateFormData>({
+      resolver: zodResolver(isEdit ? updateSchema : createSchema),
+      defaultValues: isEdit ? {
+        employee_id: editTarget.employee_id,
+        full_name: editTarget.full_name,
+        phone: editTarget.phone || "",
+        department: editTarget.department || undefined,
+        designation: editTarget.designation || "",
+        is_hod: editTarget.is_hod,
+        user_status: editTarget.user_status,
+      } : { is_hod: false },
     });
 
-  const createMutation = useMutation({
-    mutationFn: (data: CreateFormData) => facultyApi.create({
-      ...data,
-      department: data.department || undefined,
-    }),
+  const submitMutation = useMutation({
+    mutationFn: (data: any) => {
+      const payload = { ...data, department: data.department || undefined };
+      if (isEdit) {
+        return facultyApi.update(editTarget.id, payload);
+      } else {
+        return facultyApi.create(payload);
+      }
+    },
     onSuccess: () => {
       reset();
       onSaved();
@@ -65,7 +85,7 @@ function CreateFacultyModal({
     },
     onError: (err: unknown) => {
       const msg = (err as { response?: { data?: { message?: string } } })
-        ?.response?.data?.message ?? "Failed to create faculty account.";
+        ?.response?.data?.message ?? (isEdit ? "Failed to update faculty account." : "Failed to create faculty account.");
       setServerError(msg);
     },
   });
@@ -74,10 +94,12 @@ function CreateFacultyModal({
     <Dialog open onOpenChange={() => { reset(); setServerError(""); onClose(); }}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Create Faculty Account</DialogTitle>
-          <DialogDescription className="text-slate-400">
-            Set a temporary password. The faculty member can change it in <strong className="text-white">Settings → Change Password</strong> after logging in.
-          </DialogDescription>
+          <DialogTitle>{isEdit ? "Edit Faculty Member" : "Create Faculty Account"}</DialogTitle>
+          {!isEdit && (
+            <DialogDescription className="text-slate-400">
+              Set a temporary password. The faculty member can change it in <strong className="text-white">Settings → Change Password</strong> after logging in.
+            </DialogDescription>
+          )}
         </DialogHeader>
 
         {serverError && (
@@ -86,36 +108,38 @@ function CreateFacultyModal({
           </div>
         )}
 
-        <form onSubmit={handleSubmit((d) => { setServerError(""); createMutation.mutate(d); })}
+        <form onSubmit={handleSubmit((d) => { setServerError(""); submitMutation.mutate(d); })}
           className="space-y-4" noValidate>
 
-          {/* Email + Password */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-slate-300 text-sm">Email *</Label>
-              <Input type="email" placeholder="faculty@college.edu"
-                className="bg-white/5 border-white/10 text-white placeholder:text-slate-600 h-10"
-                {...register("email")} />
-              {errors.email && <p className="text-red-400 text-xs">{errors.email.message}</p>}
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-slate-300 text-sm">Temporary Password *</Label>
-              <div className="relative">
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Min 8 characters"
-                  className="bg-white/5 border-white/10 text-white placeholder:text-slate-600 h-10 pr-10"
-                  {...register("password")}
-                />
-                <button type="button" tabIndex={-1}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-                  onClick={() => setShowPassword((p) => !p)}>
-                  {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                </button>
+          {/* Email + Password (Only for Create) */}
+          {!isEdit && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-slate-300 text-sm">Email *</Label>
+                <Input type="email" placeholder="faculty@college.edu"
+                  className="bg-white/5 border-white/10 text-white placeholder:text-slate-600 h-10"
+                  {...register("email")} />
+                {(errors as any).email && <p className="text-red-400 text-xs">{(errors as any).email.message}</p>}
               </div>
-              {errors.password && <p className="text-red-400 text-xs">{errors.password.message}</p>}
+              <div className="space-y-1.5">
+                <Label className="text-slate-300 text-sm">Temporary Password *</Label>
+                <div className="relative">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Min 8 characters"
+                    className="bg-white/5 border-white/10 text-white placeholder:text-slate-600 h-10 pr-10"
+                    {...register("password")}
+                  />
+                  <button type="button" tabIndex={-1}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                    onClick={() => setShowPassword((p) => !p)}>
+                    {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
+                {(errors as any).password && <p className="text-red-400 text-xs">{(errors as any).password.message}</p>}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Full Name + Employee ID */}
           <div className="grid grid-cols-2 gap-3">
@@ -162,29 +186,43 @@ function CreateFacultyModal({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-slate-300 text-sm">Designation</Label>
-              <Input placeholder="Associate Professor"
+              <Input placeholder="e.g. Assistant Professor"
                 className="bg-white/5 border-white/10 text-white placeholder:text-slate-600 h-10"
                 {...register("designation")} />
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-slate-300 text-sm">Role</Label>
-              <div className="flex items-center h-10 gap-2">
-                <input type="checkbox" id="is_hod" className="w-4 h-4 accent-white" {...register("is_hod")} />
-                <label htmlFor="is_hod" className="text-slate-400 text-sm">Head of Department (HOD)</label>
+            {isEdit && (
+              <div className="space-y-1.5">
+                <Label className="text-slate-300 text-sm">Status</Label>
+                <Controller name="user_status" control={control} render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger className="bg-white/5 border-white/10 text-white h-10">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[200]">
+                      <SelectItem value="ACTIVE">Active</SelectItem>
+                      <SelectItem value="INACTIVE">Inactive</SelectItem>
+                      <SelectItem value="SUSPENDED">Suspended</SelectItem>
+                      <SelectItem value="TRANSFERRED">Transferred</SelectItem>
+                      <SelectItem value="RESIGNED">Resigned</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )} />
               </div>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-slate-300 text-sm">Role</Label>
+            <div className="flex items-center h-10 gap-2">
+              <input type="checkbox" id="is_hod" className="w-4 h-4 accent-white" {...register("is_hod")} />
+              <label htmlFor="is_hod" className="text-slate-400 text-sm">Head of Department (HOD)</label>
             </div>
           </div>
 
-          <DialogFooter className="gap-2 pt-2">
-            <Button type="button" variant="outline" size="sm"
-              className="border-white/10 text-slate-300 hover:bg-white/5"
-              onClick={() => { reset(); setServerError(""); onClose(); }}>
-              Cancel
-            </Button>
-            <Button type="submit" size="sm" className="bg-white text-slate-900 hover:bg-white/90"
-              disabled={isSubmitting || createMutation.isPending}>
-              {(isSubmitting || createMutation.isPending) && <Loader2 className="animate-spin" size={14} />}
-              Create Faculty Account
+          <DialogFooter className="pt-2">
+            <Button type="button" variant="ghost" onClick={onClose} disabled={submitMutation.isPending}>Cancel</Button>
+            <Button type="submit" disabled={submitMutation.isPending}>
+              {submitMutation.isPending ? <Loader2 className="animate-spin" size={16} /> : (isEdit ? "Update" : "Create Account")}
             </Button>
           </DialogFooter>
         </form>
@@ -193,15 +231,25 @@ function CreateFacultyModal({
   );
 }
 
-// ── Main Page ──────────────────────────────────────────────────────────────────
+// ── Main Page ────────────────────────────────────────────────────────
 export default function FacultyPage() {
-  const [search, setSearch]         = useState("");
-  const [createOpen, setCreateOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<Faculty | undefined>();
+  const [deleteTarget, setDeleteTarget] = useState<Faculty | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
   const queryClient = useQueryClient();
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ["faculty-list", search],
-    queryFn: () => facultyApi.list({ search: search || undefined, page_size: 50 }),
+    queryKey: ["faculty-list", searchTerm],
+    queryFn: () => facultyApi.list({ search: searchTerm, page_size: 50 }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => facultyApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["faculty-list"] });
+      setDeleteTarget(null);
+    },
   });
 
   const faculty = data?.results ?? [];
@@ -217,8 +265,8 @@ export default function FacultyPage() {
           <Button variant="outline" size="sm" className="border-white/10 text-slate-300 hover:bg-white/5" onClick={() => refetch()}>
             <RefreshCw size={14} />
           </Button>
-          <Button size="sm" className="bg-white text-slate-900 hover:bg-white/90" onClick={() => setCreateOpen(true)}>
-            <Plus size={14} /> Add Faculty
+          <Button className="h-10 flex-1 sm:flex-none" onClick={() => { setEditTarget(undefined); setModalOpen(true); }}>
+            <Plus size={18} className="mr-2" /> Add Faculty
           </Button>
         </div>
       </div>
@@ -227,8 +275,8 @@ export default function FacultyPage() {
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
         <Input
           placeholder="Search by name, ID or email…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
           className="pl-9 bg-white/5 border-white/10 text-white placeholder:text-slate-600 h-9 text-sm"
         />
       </div>
@@ -240,42 +288,71 @@ export default function FacultyPage() {
           <div className="flex flex-col items-center justify-center py-16">
             <Users className="w-10 h-10 text-slate-700 mb-3" />
             <p className="text-slate-400 text-sm">No faculty found</p>
-            <button className="mt-3 text-sm text-white underline underline-offset-4" onClick={() => setCreateOpen(true)}>
+            <button className="mt-3 text-sm text-white underline underline-offset-4" onClick={() => setModalOpen(true)}>
               Add first faculty member
             </button>
           </div>
         ) : (
           <table className="w-full">
             <thead>
-              <tr className="border-b border-white/8">
-                {["Faculty Member", "Employee ID", "Department", "Designation", "Status"].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">{h}</th>
-                ))}
-              </tr>
+                <tr className="border-b border-white/8">
+                  {["Name", "ID / Role", "Department", "Contact", "Status", "Actions"].map((h) => (
+                    <th key={h} className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">{h}</th>
+                  ))}
+                </tr>
             </thead>
             <tbody>
               {faculty.map((f) => (
-                <FacultyRow key={f.id} faculty={f} />
+                <FacultyRow 
+                    key={f.id} 
+                    faculty={f} 
+                    onEdit={() => { setEditTarget(f); setModalOpen(true); }}
+                    onDelete={() => setDeleteTarget(f)}
+                />
               ))}
             </tbody>
           </table>
         )}
       </div>
 
-      {createOpen && (
-        <CreateFacultyModal
-          onClose={() => setCreateOpen(false)}
+      {modalOpen && (
+        <FacultyFormModal
+          onClose={() => { setModalOpen(false); setEditTarget(undefined); }}
+          editTarget={editTarget}
           onSaved={() => queryClient.invalidateQueries({ queryKey: ["faculty-list"] })}
         />
       )}
+
+      {/* Delete Confirmation */}
+      <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete Faculty Member?</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 text-slate-300 text-sm">
+            Are you sure you want to delete <span className="text-white font-medium">{deleteTarget?.full_name}</span>?
+            Their account will be marked as INACTIVE and they will lose access.
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+            >
+              {deleteMutation.isPending ? <Loader2 className="animate-spin" size={16} /> : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-function FacultyRow({ faculty: f }: { faculty: Faculty }) {
+function FacultyRow({ faculty: f, onEdit, onDelete }: { faculty: Faculty, onEdit: () => void, onDelete: () => void }) {
   const isActive = f.user_status === "ACTIVE";
   return (
-    <tr className="border-b border-white/5 hover:bg-white/3 transition-colors">
+    <tr className="border-b border-white/5 hover:bg-white/3 transition-colors group">
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
@@ -301,6 +378,16 @@ function FacultyRow({ faculty: f }: { faculty: Faculty }) {
         <Badge variant={isActive ? "success" : "secondary"} className="text-xs">
           {isActive ? "Active" : f.user_status}
         </Badge>
+      </td>
+      <td className="px-4 py-3 text-right">
+        <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-400 hover:text-white" onClick={onEdit}>
+            <Edit2 size={15} />
+          </Button>
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-400 hover:text-red-400" onClick={onDelete}>
+            <Trash2 size={15} />
+          </Button>
+        </div>
       </td>
     </tr>
   );

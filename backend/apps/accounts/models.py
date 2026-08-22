@@ -24,6 +24,8 @@ class UserStatus(models.TextChoices):
     ACTIVE = "ACTIVE", "Active"
     INACTIVE = "INACTIVE", "Inactive"
     SUSPENDED = "SUSPENDED", "Suspended"
+    TRANSFERRED = "TRANSFERRED", "Transferred"
+    RESIGNED = "RESIGNED", "Resigned"
 
 
 class UserManager(BaseUserManager):
