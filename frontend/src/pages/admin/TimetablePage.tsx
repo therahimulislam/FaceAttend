@@ -145,16 +145,16 @@ function EntryFormModal({
   };
 
   const SelectField = ({ id, label, value, onChange, children, error }: {
-    id: string; label: string; value: string; onChange: (v: string) => void;
+    id: string; label: string; value: string | undefined; onChange: (v: string) => void;
     children: React.ReactNode; error?: string;
   }) => (
     <div className="space-y-1.5">
       <Label className="text-slate-300 text-sm">{label}</Label>
-      <Select value={value} onValueChange={onChange}>
+      <Select value={value || undefined} onValueChange={onChange}>
         <SelectTrigger id={id} className="bg-white/5 border-white/10 text-white h-10 text-sm">
           <SelectValue placeholder="Select…" />
         </SelectTrigger>
-        <SelectContent>{children}</SelectContent>
+        <SelectContent className="z-[100]">{children}</SelectContent>
       </Select>
       {error && <p className="text-red-400 text-xs">{error}</p>}
     </div>
