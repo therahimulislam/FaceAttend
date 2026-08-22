@@ -88,8 +88,8 @@ export default defineConfig({
         // Pre-cache all build artifacts
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2,webmanifest}"],
 
-        // Offline fallback: serve offline.html when network is unavailable
-        navigateFallback: "/offline.html",
+        // SPA routing fallback: serve index.html for all navigation requests
+        navigateFallback: "/index.html",
         // Don't intercept API calls with the navigation fallback
         navigateFallbackDenylist: [/^\/api\//, /^\/admin\//],
 
