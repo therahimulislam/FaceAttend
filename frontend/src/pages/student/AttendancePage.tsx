@@ -329,97 +329,30 @@ function SessionPreviewStep({
         )}
       </div>
 
-      {/* Face Verification Section (Phase 10) */}
-      <div className="rounded-xl bg-white/3 border border-white/8 p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Scan size={14} className="text-slate-400" />
-          <span className="text-slate-300 text-sm font-medium">Face Verification</span>
-          <span className="text-slate-600 text-xs">(Optional)</span>
-          {faceImage && (
-            <span className="ml-auto text-emerald-400 text-xs flex items-center gap-1">
-              <CheckCircle2 size={11} /> Ready
-            </span>
-          )}
-        </div>
-
-        {facePreview ? (
-          <div className="flex items-center gap-3">
-            <img
-              src={facePreview}
-              className="w-14 h-14 rounded-lg object-cover border border-white/10"
-              alt="Face capture"
-            />
-            <div className="flex-1">
-              <p className="text-slate-300 text-xs">Face captured</p>
-              <button
-                className="text-slate-500 hover:text-white text-xs mt-0.5 transition-colors"
-                onClick={() => { setFaceImage(null); setFacePreview(null); }}
-              >
-                Remove
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <p className="text-slate-500 text-xs">
-              Take a selfie to verify your identity with face recognition.
+      {/* Phase 11 — Liveness Detection + Real-time Face Capture */}
+      <FaceLivenessCapture
+        sessionCode={session.session_code ?? ""}
+        onVerified={(challengeId, liveFaceFile) => {
+          setLivenessVerifiedId(challengeId);
+          setFaceImage(liveFaceFile);
+          setFacePreview(URL.createObjectURL(liveFaceFile));
+        }}
+      />
+      
+      {facePreview && (
+        <div className="rounded-xl bg-white/3 border border-white/8 p-4 flex items-center gap-3">
+          <img
+            src={facePreview}
+            className="w-14 h-14 rounded-lg object-cover border border-white/10"
+            alt="Live face capture"
+          />
+          <div className="flex-1">
+            <p className="text-slate-300 text-xs">Live face captured</p>
+            <p className="text-emerald-400 text-xs mt-0.5 flex items-center gap-1">
+              <CheckCircle2 size={11} /> Ready for verification
             </p>
-            <div className="flex gap-2">
-              <Button
-                size="sm" variant="outline"
-                className="flex-1 border-white/10 text-slate-300 hover:bg-white/5"
-                onClick={() => faceFileRef.current?.click()}
-              >
-                <Camera size={13} /> Upload Photo
-              </Button>
-            </div>
-            <input
-              ref={faceFileRef}
-              type="file"
-              accept="image/jpeg,image/png"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) handleFaceFile(f);
-              }}
-            />
           </div>
-        )}
-      </div>
-
-      {/* Face mismatch error */}
-      {faceMismatchError && (
-        <div className="rounded-lg bg-red-950/40 border border-red-800/40 p-4 space-y-2">
-          <div className="flex items-center gap-2 text-red-400 font-semibold text-sm">
-            <AlertCircle size={14} /> Face Verification Failed
-          </div>
-          <p className="text-red-300 text-xs">{faceMismatchError.message}</p>
-          <p className="text-slate-500 text-xs">
-            Please retake your photo with better lighting and try again.
-          </p>
         </div>
-      )}
-
-      {/* Phase 11 — Liveness Detection (shown after face section) */}
-      {!livenessSkipped && (
-        <FaceLivenessCapture
-          sessionCode={session.session_code ?? ""}
-          onVerified={(challengeId) => {
-            setLivenessVerifiedId(challengeId);
-          }}
-          onSkip={() => {
-            setLivenessSkipped(true);
-            setLivenessVerifiedId(null);
-          }}
-        />
-      )}
-      {livenessSkipped && !livenessVerifiedId && (
-        <button
-          className="text-slate-600 hover:text-slate-400 text-xs transition-colors text-center w-full py-1"
-          onClick={() => setLivenessSkipped(false)}
-        >
-          + Enable liveness verification
-        </button>
       )}
 
       {/* Geofence violation error */}

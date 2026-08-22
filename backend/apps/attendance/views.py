@@ -327,9 +327,17 @@ class AttendanceSessionViewSet(viewsets.ModelViewSet):
         lon = ser.validated_data.get("longitude")
         face_image_file = ser.validated_data.get("face_image")
         liveness_challenge_id = ser.validated_data.get("liveness_challenge_id")
+        
+        if not liveness_challenge_id:
+            return error_response(
+                message="Liveness verification is mandatory.",
+                code="LIVENESS_REQUIRED",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+            
         has_gps = lat is not None and lon is not None
         has_face = face_image_file is not None
-        has_liveness = liveness_challenge_id is not None
+        has_liveness = True
 
         # ---- Phase 8: Geofence Validation ----
         gps_verified = False

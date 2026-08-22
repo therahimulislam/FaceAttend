@@ -49,12 +49,7 @@ const DEFAULT_SNAPSHOT: AttendanceSnapshot = {
   last_student: null,
 };
 
-const WS_BASE =
-  typeof window !== 'undefined'
-    ? window.location.protocol === 'https:'
-      ? `wss://${window.location.host}`
-      : `ws://${window.location.host}`
-    : 'ws://localhost:8000';
+import { env } from '@/config/env';
 
 export function useSessionSocket(sessionId: string | null | undefined): UseSessionSocketReturn {
   const [snapshot, setSnapshot] = useState<AttendanceSnapshot>(DEFAULT_SNAPSHOT);
@@ -77,7 +72,8 @@ export function useSessionSocket(sessionId: string | null | undefined): UseSessi
       wsRef.current.close();
     }
 
-    const url = `${WS_BASE}/ws/sessions/${sessionId}/?token=${accessToken}`;
+    const baseUrl = env.WS_BASE_URL.replace(/\/$/, ''); // Ensure no trailing slash
+    const url = `${baseUrl}/sessions/${sessionId}/?token=${accessToken}`;
     setStatus('connecting');
 
     const ws = new WebSocket(url);

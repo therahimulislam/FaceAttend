@@ -169,10 +169,12 @@ function ManualMarkModal({
 // ---- Active Session Panel ----
 function ActiveSessionPanel({
   session,
+  onStart,
   onEnd,
   onCancel,
 }: {
   session: AttendanceSession;
+  onStart?: () => void;
   onEnd: () => void;
   onCancel: () => void;
 }) {
@@ -194,13 +196,25 @@ function ActiveSessionPanel({
       <div className="rounded-xl bg-emerald-950/40 border border-emerald-700/40 p-5">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-              </span>
-              <span className="text-emerald-400 font-semibold text-sm">Session Active</span>
-            </div>
+            {session.status === "ACTIVE" ? (
+              <div className="flex items-center gap-2 mb-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                </span>
+                <span className="text-emerald-400 font-semibold text-sm">Session Active</span>
+              </div>
+            ) : session.status === "SCHEDULED" ? (
+              <div className="flex items-center gap-2 mb-2">
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-slate-500" />
+                <span className="text-slate-400 font-semibold text-sm">Session Scheduled</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 mb-2">
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
+                <span className="text-blue-400 font-semibold text-sm">Session {session.status.toLowerCase()}</span>
+              </div>
+            )}
             <p className="text-white font-bold text-lg">
               {session.subject_code} — {session.subject_name}
             </p>
@@ -229,35 +243,50 @@ function ActiveSessionPanel({
 
         {/* Actions */}
         <div className="mt-4 flex items-center gap-2">
-          <Button size="sm" variant="outline"
-            className="border-white/10 text-slate-300 hover:bg-white/5"
-            onClick={() => setMarkOpen(true)}>
-            <Plus size={13} /> Manual Mark
-          </Button>
+          {session.status === "ACTIVE" && (
+            <Button size="sm" variant="outline"
+              className="border-white/10 text-slate-300 hover:bg-white/5"
+              onClick={() => setMarkOpen(true)}>
+              <Plus size={13} /> Manual Mark
+            </Button>
+          )}
           <Button size="sm" variant="outline"
             className="border-white/10 text-slate-300 hover:bg-white/5"
             onClick={() => refetch()}>
             <RefreshCw size={13} />
           </Button>
           <div className="ml-auto flex items-center gap-2">
-            <Button size="sm"
-              className="bg-blue-600 hover:bg-blue-500 text-white border-0"
-              onClick={onEnd}>
-              <Square size={12} /> End Session
-            </Button>
-            <Button size="sm" variant="outline"
-              className="border-red-800/50 text-red-400 hover:bg-red-950/40"
-              onClick={onCancel}>
-              <X size={13} /> Cancel
-            </Button>
+            {session.status === "SCHEDULED" && onStart && (
+              <Button size="sm"
+                className="bg-emerald-600 hover:bg-emerald-500 text-white border-0"
+                onClick={onStart}>
+                <Play size={12} /> Start Session
+              </Button>
+            )}
+            {session.status === "ACTIVE" && (
+              <Button size="sm"
+                className="bg-blue-600 hover:bg-blue-500 text-white border-0"
+                onClick={onEnd}>
+                <Square size={12} /> End Session
+              </Button>
+            )}
+            {(session.status === "SCHEDULED" || session.status === "ACTIVE") && (
+              <Button size="sm" variant="outline"
+                className="border-red-800/50 text-red-400 hover:bg-red-950/40"
+                onClick={onCancel}>
+                <X size={13} /> Cancel
+              </Button>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Phase 13: Live Attendance WebSocket Panel */}
-      <div className="bg-white/3 border border-white/8 rounded-xl p-4">
-        <LiveAttendancePanel sessionId={session.id} />
-      </div>
+      {/* Phase 13: Live Attendance WebSocket Panel (Only show if ACTIVE) */}
+      {session.status === "ACTIVE" && (
+        <div className="bg-white/3 border border-white/8 rounded-xl p-4">
+          <LiveAttendancePanel sessionId={session.id} />
+        </div>
+      )}
 
       {/* Attendance Roll */}
       <div className="bg-white/3 border border-white/8 rounded-xl overflow-hidden">
@@ -628,6 +657,7 @@ export default function FacultyAttendancePage() {
             {activeSession ? (
               <ActiveSessionPanel
                 session={activeSession}
+                onStart={() => startMutation.mutate(activeSession.id)}
                 onEnd={() => endMutation.mutate(activeSession.id)}
                 onCancel={() => cancelMutation.mutate(activeSession.id)}
               />

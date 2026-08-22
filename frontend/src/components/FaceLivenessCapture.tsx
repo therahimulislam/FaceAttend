@@ -1,112 +1,160 @@
-/**
- * FaceAttend — FaceLivenessCapture Component (Phase 11)
- *
- * Handles the complete liveness verification flow:
- *  1. Request a challenge from the backend
- *  2. Display the challenge instruction to the student
- *  3. Start the webcam and capture frames over 2.5 seconds
- *  4. Send frames to /face/liveness/verify/
- *  5. Return the verified challenge_id to the parent
- *
- * Props:
- *   sessionCode  — ties the challenge to the current attendance session
- *   onVerified   — called with challenge_id when liveness is confirmed
- *   onSkip       — called when student skips liveness
- */
-
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Loader2, Camera, CheckCircle2, XCircle, AlertCircle, RefreshCw, Scan } from "lucide-react";
+import { Loader2, Camera, CheckCircle2, XCircle, AlertCircle, RefreshCw, Scan, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import api from "@/services/api";
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────────────────────────────────────
+import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 
 interface Challenge {
   challenge_id: string;
-  challenge_type: "BLINK" | "NOD" | "TURN_LEFT" | "TURN_RIGHT";
+  challenge_type: string;
   instruction: string;
   expires_at: string;
   nonce: string;
 }
 
 type LivenessState =
-  | "idle"           // initial state, challenge not yet requested
-  | "requesting"     // fetching challenge from backend
-  | "ready"          // challenge received, waiting for user to start
-  | "capturing"      // webcam active, capturing frames
+  | "initializing"   // loading mediapipe & requesting challenge
+  | "ready"          // ready to start webcam
+  | "capturing"      // webcam active, waiting for blink
   | "analyzing"      // sending frames to backend
   | "passed"         // liveness verified
   | "failed"         // liveness failed (retry possible)
   | "error";         // unrecoverable error
 
-// Number of frames to capture
-const FRAME_COUNT = 6;
-// Interval between frames (ms)
-const FRAME_INTERVAL_MS = 400;
+const LEFT_EYE = [33, 160, 158, 133, 153, 144];
+const RIGHT_EYE = [362, 385, 387, 263, 373, 380];
+const EAR_THRESHOLD = 0.22;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Component
-// ─────────────────────────────────────────────────────────────────────────────
+function calculateEAR(landmarks: any[], indices: number[]) {
+  const p1 = landmarks[indices[0]];
+  const p2 = landmarks[indices[1]];
+  const p3 = landmarks[indices[2]];
+  const p4 = landmarks[indices[3]];
+  const p5 = landmarks[indices[4]];
+  const p6 = landmarks[indices[5]];
+
+  const dist = (a: any, b: any) => Math.hypot(a.x - b.x, a.y - b.y);
+
+  const vertical1 = dist(p2, p6);
+  const vertical2 = dist(p3, p5);
+  const horizontal = dist(p1, p4);
+
+  return (vertical1 + vertical2) / (2.0 * horizontal);
+}
 
 interface Props {
   sessionCode?: string;
-  onVerified: (challengeId: string) => void;
-  onSkip: () => void;
+  onVerified: (challengeId: string, faceFile: File) => void;
 }
 
-export default function FaceLivenessCapture({ sessionCode, onVerified, onSkip }: Props) {
-  const [state, setState] = useState<LivenessState>("idle");
+let globalFaceLandmarker: FaceLandmarker | null = null;
+
+export default function FaceLivenessCapture({ sessionCode, onVerified }: Props) {
+  const [state, setState] = useState<LivenessState>("initializing");
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
-  const [captureProgress, setCaptureProgress] = useState(0); // 0–FRAME_COUNT
-
+  
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  
   const framesRef = useRef<Blob[]>([]);
+  const captureIntervalRef = useRef<any>(null);
+  const requestRef = useRef<number>(0);
+  
+  const isBlinkingRef = useRef(false);
 
-  // ── Cleanup webcam on unmount ──
+  // Initialize and load everything
   useEffect(() => {
+    let mounted = true;
+    
+    const init = async () => {
+      try {
+        if (!globalFaceLandmarker) {
+          const vision = await FilesetResolver.forVisionTasks(
+            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
+          );
+          globalFaceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+              delegate: "GPU"
+            },
+            runningMode: "VIDEO",
+            numFaces: 1,
+          });
+        }
+        
+        const res = await api.post<{ success: boolean; data: Challenge }>(
+          "/face/liveness/challenge/",
+          { session_code: sessionCode ?? "" },
+        );
+        
+        if (mounted) {
+          setChallenge(res.data.data);
+          setState("ready");
+          startCapture(); // Auto start
+        }
+      } catch (err: any) {
+        if (mounted) {
+          setErrorMsg(err?.response?.data?.message ?? "Failed to initialize liveness detection.");
+          setState("error");
+        }
+      }
+    };
+    
+    init();
+    
     return () => {
+      mounted = false;
       stopWebcam();
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionCode]);
 
   const stopWebcam = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     }
+    if (captureIntervalRef.current) clearInterval(captureIntervalRef.current);
+    if (requestRef.current) cancelAnimationFrame(requestRef.current);
   }, []);
 
-  // ── Step 1: Request challenge ──
-  const requestChallenge = useCallback(async () => {
-    setState("requesting");
-    setErrorMsg("");
+  const submitFrames = useCallback(async (challengeId: string, blobs: Blob[]) => {
+    setState("analyzing");
+    const form = new FormData();
+    form.append("challenge_id", challengeId);
+    blobs.forEach((blob, i) => {
+      form.append("frames", blob, `frame_${i}.jpg`);
+    });
+
     try {
-      const res = await api.post<{ success: boolean; data: Challenge }>(
-        "/face/liveness/challenge/",
-        { session_code: sessionCode ?? "" },
-      );
-      setChallenge(res.data.data);
-      setState("ready");
+      await api.post("/face/liveness/verify/", form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setState("passed");
+      const faceFile = new File([blobs[blobs.length - 1]], "live_face.jpg", { type: "image/jpeg" });
+      onVerified(challengeId, faceFile);
     } catch (err: any) {
-      setErrorMsg(err?.response?.data?.message ?? "Failed to request liveness challenge.");
-      setState("error");
+      const data = err?.response?.data;
+      if (data?.code === "LIVENESS_FAILED") {
+        setErrorMsg(data.message ?? "Liveness check failed. Please try again.");
+        setState("failed");
+      } else if (data?.code === "CHALLENGE_EXPIRED") {
+        setErrorMsg("Challenge expired. Please refresh the page.");
+        setState("error");
+      } else {
+        setErrorMsg(data?.message ?? "An error occurred during liveness verification.");
+        setState("error");
+      }
     }
-  }, [sessionCode]);
+  }, [onVerified]);
 
-  // ── Step 2: Start webcam + capture frames ──
   const startCapture = useCallback(async () => {
-    if (!challenge) return;
-
     setState("capturing");
     framesRef.current = [];
-    setCaptureProgress(0);
+    isBlinkingRef.current = false;
 
-    // Open webcam
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({
@@ -120,85 +168,72 @@ export default function FaceLivenessCapture({ sessionCode, onVerified, onSkip }:
     streamRef.current = stream;
     if (videoRef.current) {
       videoRef.current.srcObject = stream;
-      await videoRef.current.play().catch(() => {});
+      videoRef.current.play();
     }
 
-    // Capture frames at intervals
     const canvas = canvasRef.current!;
     canvas.width = 320;
     canvas.height = 240;
     const ctx = canvas.getContext("2d")!;
 
-    let captured = 0;
-    const captureFrame = () => {
-      if (!videoRef.current || captured >= FRAME_COUNT) return;
+    // Rolling frame capture every 300ms
+    captureIntervalRef.current = setInterval(() => {
+      if (!videoRef.current) return;
       ctx.drawImage(videoRef.current, 0, 0, 320, 240);
-      canvas.toBlob(
-        (blob) => {
-          if (blob) {
-            framesRef.current.push(blob);
-            captured++;
-            setCaptureProgress(captured);
-            if (captured < FRAME_COUNT) {
-              setTimeout(captureFrame, FRAME_INTERVAL_MS);
-            } else {
-              // Done capturing — submit
+      canvas.toBlob((blob) => {
+        if (blob) {
+          framesRef.current.push(blob);
+          if (framesRef.current.length > 6) {
+            framesRef.current.shift(); // Keep last 6 frames
+          }
+        }
+      }, "image/jpeg", 0.85);
+    }, 300);
+
+    let lastVideoTime = -1;
+    const detectBlink = () => {
+      if (!videoRef.current || !globalFaceLandmarker || state === "analyzing" || state === "passed") return;
+
+      const video = videoRef.current;
+      if (video.currentTime !== lastVideoTime && video.readyState >= 2) {
+        lastVideoTime = video.currentTime;
+        const result = globalFaceLandmarker.detectForVideo(video, performance.now());
+        
+        if (result.faceLandmarks && result.faceLandmarks.length > 0) {
+          const landmarks = result.faceLandmarks[0];
+          const leftEAR = calculateEAR(landmarks, LEFT_EYE);
+          const rightEAR = calculateEAR(landmarks, RIGHT_EYE);
+          const ear = (leftEAR + rightEAR) / 2;
+
+          if (ear < EAR_THRESHOLD) {
+            isBlinkingRef.current = true;
+          } else if (isBlinkingRef.current && ear > EAR_THRESHOLD) {
+            // Blink complete!
+            isBlinkingRef.current = false;
+            if (framesRef.current.length >= 3) {
               stopWebcam();
-              submitFrames(challenge.challenge_id);
+              submitFrames(challenge?.challenge_id || "", [...framesRef.current]);
+              return;
             }
           }
-        },
-        "image/jpeg",
-        0.85,
-      );
+        }
+      }
+      requestRef.current = requestAnimationFrame(detectBlink);
     };
 
-    // Small delay so webcam stabilises
-    setTimeout(captureFrame, 400);
-  }, [challenge, stopWebcam]);
+    // Delay start of blink detection slightly to let webcam stabilize
+    setTimeout(() => {
+      requestRef.current = requestAnimationFrame(detectBlink);
+    }, 1000);
 
-  // ── Step 3: Submit frames to backend ──
-  const submitFrames = useCallback(async (challengeId: string) => {
-    setState("analyzing");
-    const form = new FormData();
-    form.append("challenge_id", challengeId);
-    framesRef.current.forEach((blob, i) => {
-      form.append("frames", blob, `frame_${i}.jpg`);
-    });
+  }, [challenge, submitFrames, stopWebcam, state]);
 
-    try {
-      await api.post(
-        "/face/liveness/verify/",
-        form,
-        { headers: { "Content-Type": "multipart/form-data" } },
-      );
-      setState("passed");
-      onVerified(challengeId);
-    } catch (err: any) {
-      const data = err?.response?.data;
-      if (data?.code === "LIVENESS_FAILED") {
-        setErrorMsg(data.message ?? "Liveness check failed. Please try again.");
-        setState("failed");
-      } else if (data?.code === "CHALLENGE_EXPIRED") {
-        setErrorMsg("Challenge expired. Requesting a new one…");
-        setState("idle");
-        requestChallenge();
-      } else {
-        setErrorMsg(data?.message ?? "An error occurred during liveness verification.");
-        setState("error");
-      }
-    }
-  }, [onVerified, requestChallenge]);
-
-  // ── Render ──
   return (
     <div className="rounded-xl bg-white/3 border border-white/8 p-4 space-y-4">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Scan size={14} className="text-purple-400" />
-          <span className="text-slate-300 text-sm font-medium">Liveness Detection</span>
-          <span className="text-slate-600 text-xs">(Optional)</span>
+          <span className="text-slate-300 text-sm font-medium">Liveness Detection (Mandatory)</span>
         </div>
         {state === "passed" && (
           <span className="text-emerald-400 text-xs flex items-center gap-1">
@@ -207,96 +242,50 @@ export default function FaceLivenessCapture({ sessionCode, onVerified, onSkip }:
         )}
       </div>
 
-      {/* State machine UI */}
-
-      {state === "idle" && (
-        <div className="space-y-3">
-          <p className="text-slate-500 text-xs">
-            Prove you are physically present — not a photo or recording.
-          </p>
-          <Button
-            size="sm" variant="outline"
-            className="w-full border-white/10 text-slate-300 hover:bg-white/5"
-            onClick={requestChallenge}
-          >
-            <Camera size={13} /> Start Liveness Check
-          </Button>
+      {state === "initializing" && (
+        <div className="flex flex-col items-center justify-center gap-2 py-6 text-slate-400 text-sm">
+          <Loader2 className="animate-spin text-purple-400" size={24} />
+          <p>Loading AI models...</p>
         </div>
       )}
 
-      {state === "requesting" && (
-        <div className="flex items-center justify-center gap-2 py-3 text-slate-400 text-sm">
-          <Loader2 className="animate-spin" size={14} /> Preparing challenge…
-        </div>
-      )}
-
-      {state === "ready" && challenge && (
-        <div className="space-y-3">
-          {/* Challenge instruction */}
-          <div className="bg-purple-950/40 border border-purple-800/40 rounded-lg p-3">
-            <p className="text-purple-300 text-xs font-semibold mb-1">Your challenge:</p>
-            <p className="text-white text-sm">{challenge.instruction}</p>
-          </div>
-          <p className="text-slate-500 text-xs">
-            Click below, then perform the action in front of your camera. 6 frames will be captured over ~2.5 seconds.
-          </p>
-          <Button
-            size="sm"
-            className="w-full bg-purple-700 hover:bg-purple-600 text-white"
-            onClick={startCapture}
-          >
-            <Camera size={13} /> Open Camera & Verify
-          </Button>
-        </div>
+      {state === "ready" && (
+         <div className="flex flex-col items-center justify-center gap-2 py-6 text-slate-400 text-sm">
+           <Loader2 className="animate-spin text-purple-400" size={24} />
+           <p>Starting camera...</p>
+         </div>
       )}
 
       {state === "capturing" && (
         <div className="space-y-3">
-          {challenge && (
-            <div className="bg-purple-950/40 border border-purple-800/40 rounded-lg p-2 text-center">
-              <p className="text-purple-300 text-xs">{challenge.instruction}</p>
-            </div>
-          )}
-          {/* Live video preview */}
-          <div className="relative rounded-lg overflow-hidden bg-black aspect-video">
+          <div className="bg-purple-950/40 border border-purple-800/40 rounded-lg p-3 text-center animate-pulse">
+            <p className="text-purple-300 text-sm font-semibold flex items-center justify-center gap-2">
+              <Eye size={16} /> Please blink your eyes to verify
+            </p>
+          </div>
+          <div className="relative rounded-lg overflow-hidden bg-black aspect-video ring-2 ring-purple-500/50">
             <video
               ref={videoRef}
-              className="w-full h-full object-cover"
-              autoPlay
+              className="w-full h-full object-cover transform -scale-x-100" // mirror
               playsInline
               muted
             />
-            {/* Frame counter overlay */}
-            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
-              {Array.from({ length: FRAME_COUNT }).map((_, i) => (
-                <div
-                  key={i}
-                  className={`w-2 h-2 rounded-full transition-colors ${
-                    i < captureProgress ? "bg-purple-400" : "bg-white/20"
-                  }`}
-                />
-              ))}
-            </div>
           </div>
-          <p className="text-slate-400 text-xs text-center">
-            Capturing frame {captureProgress + 1}/{FRAME_COUNT}…
-          </p>
-          {/* Hidden canvas for frame extraction */}
           <canvas ref={canvasRef} className="hidden" />
         </div>
       )}
 
       {state === "analyzing" && (
-        <div className="flex items-center justify-center gap-2 py-3 text-slate-400 text-sm">
-          <Loader2 className="animate-spin" size={14} /> Analyzing liveness…
+        <div className="flex items-center justify-center gap-2 py-6 text-slate-400 text-sm">
+          <Loader2 className="animate-spin text-purple-400" size={20} /> Securing verification...
         </div>
       )}
 
       {state === "passed" && (
-        <div className="bg-emerald-950/40 border border-emerald-800/40 rounded-lg p-3 text-center">
-          <CheckCircle2 size={20} className="text-emerald-400 mx-auto mb-1" />
+        <div className="bg-emerald-950/40 border border-emerald-800/40 rounded-lg p-4 text-center">
+          <CheckCircle2 size={24} className="text-emerald-400 mx-auto mb-2" />
           <p className="text-emerald-300 text-sm font-medium">Liveness Verified</p>
-          <p className="text-slate-500 text-xs mt-0.5">Your presence has been confirmed.</p>
+          <p className="text-slate-500 text-xs mt-1">Your presence has been confirmed.</p>
         </div>
       )}
 
@@ -311,7 +300,7 @@ export default function FaceLivenessCapture({ sessionCode, onVerified, onSkip }:
           <Button
             size="sm" variant="outline"
             className="w-full border-white/10 text-slate-300 hover:bg-white/5"
-            onClick={requestChallenge}
+            onClick={startCapture}
           >
             <RefreshCw size={13} /> Try Again
           </Button>
@@ -327,21 +316,11 @@ export default function FaceLivenessCapture({ sessionCode, onVerified, onSkip }:
           <Button
             size="sm" variant="outline"
             className="w-full border-white/10 text-slate-300 hover:bg-white/5"
-            onClick={() => { setState("idle"); setErrorMsg(""); }}
+            onClick={() => window.location.reload()}
           >
-            <RefreshCw size={13} /> Retry
+            <RefreshCw size={13} /> Reload Page
           </Button>
         </div>
-      )}
-
-      {/* Skip link (except when passed or actively capturing/analyzing) */}
-      {!["capturing", "analyzing", "passed"].includes(state) && (
-        <button
-          className="w-full text-slate-600 hover:text-slate-400 text-xs transition-colors py-1"
-          onClick={onSkip}
-        >
-          Skip liveness verification
-        </button>
       )}
     </div>
   );

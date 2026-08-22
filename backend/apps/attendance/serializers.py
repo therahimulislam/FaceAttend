@@ -191,10 +191,10 @@ class StudentSubmitSerializer(serializers.Serializer):
         required=False, allow_null=True,
         help_text="Live face photo (JPEG/PNG). Required when face verification is requested.",
     )
-    # Phase 11: optional liveness challenge ID (from /face/liveness/verify/)
+    # Phase 11: mandatory liveness challenge ID (from /face/liveness/verify/)
     liveness_challenge_id = serializers.UUIDField(
-        required=False, allow_null=True,
-        help_text="UUID of a passed LivenessChallenge. Enables liveness_verified=True on the record.",
+        required=True, allow_null=False,
+        help_text="UUID of a passed LivenessChallenge. Mandatory for submission.",
     )
 
 
