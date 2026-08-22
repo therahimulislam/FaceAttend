@@ -9,7 +9,7 @@
  */
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import axios from "axios";
@@ -59,59 +59,64 @@ function EntryFormModal({
   const isEdit = !!editTarget;
   const [conflicts, setConflicts] = useState<string[]>([]);
 
-  const { data: depts } = useQuery({ queryKey: ["departments", "all"], queryFn: () => departmentsApi.list({ status: "ACTIVE", page_size: 100 }) });
+  // ── Dept / Sem local state drives cascading queries ──
   const [selectedDept, setSelectedDept] = useState("");
-  const [selectedSem, setSelectedSem] = useState("");
+  const [selectedSem,  setSelectedSem]  = useState("");
+
+  const { data: depts } = useQuery({
+    queryKey: ["departments", "all"],
+    queryFn: () => departmentsApi.list({ status: "ACTIVE", page_size: 100 }),
+  });
 
   const { data: semesters } = useQuery({
     queryKey: ["semesters-for-timetable", selectedDept],
-    queryFn: () => semestersApi.list({ department: selectedDept, status: "ACTIVE", page_size: 100 }),
-    enabled: !!selectedDept,
+    queryFn:  () => semestersApi.list({ department: selectedDept, status: "ACTIVE", page_size: 100 }),
+    enabled:  !!selectedDept,
   });
 
   const { data: sections } = useQuery({
     queryKey: ["sections-for-timetable", selectedSem],
-    queryFn: () => sectionsApi.list({ semester: selectedSem, page_size: 100 }),
-    enabled: !!selectedSem,
+    queryFn:  () => sectionsApi.list({ semester: selectedSem, page_size: 100 }),
+    enabled:  !!selectedSem,
   });
 
-  // Auto-resolve parent IDs when editing (since editTarget only has parent names, not IDs)
+  const { data: subjects } = useQuery({
+    queryKey: ["subjects-for-timetable", selectedDept],
+    queryFn:  () => subjectsApi.list({ department: selectedDept, status: "ACTIVE", page_size: 100 }),
+    enabled:  !!selectedDept,
+  });
+
+  // Rooms are always available, no dependency
+  const { data: rooms } = useQuery({
+    queryKey: ["rooms-for-timetable"],
+    queryFn:  () => roomsApi.list({ status: "ACTIVE", page_size: 100 }),
+  });
+
+  const { data: faculty } = useQuery({
+    queryKey: ["faculty-for-timetable", selectedDept],
+    queryFn:  () => facultyApi.list({ department: selectedDept, page_size: 100 }),
+    enabled:  !!selectedDept,
+  });
+
+  // Auto-resolve Dept and Sem IDs from names when editing
   useEffect(() => {
     if (isEdit && editTarget && depts && !selectedDept) {
-      const deptMatch = depts.results.find(d => d.name === editTarget.department_name);
-      if (deptMatch) setSelectedDept(deptMatch.id);
+      const match = depts.results.find(d => d.name === editTarget.department_name);
+      if (match) setSelectedDept(match.id);
     }
   }, [isEdit, editTarget, depts, selectedDept]);
 
   useEffect(() => {
     if (isEdit && editTarget && semesters && !selectedSem) {
-      const semMatch = semesters.results.find(s => s.name === editTarget.semester_name);
-      if (semMatch) setSelectedSem(semMatch.id);
+      const match = semesters.results.find(s => s.name === editTarget.semester_name);
+      if (match) setSelectedSem(match.id);
     }
   }, [isEdit, editTarget, semesters, selectedSem]);
-
-  const { data: subjects } = useQuery({
-    queryKey: ["subjects-for-timetable", selectedDept],
-    queryFn: () => subjectsApi.list({ department: selectedDept, status: "ACTIVE", page_size: 100 }),
-    enabled: !!selectedDept,
-  });
-
-  const { data: rooms } = useQuery({
-    queryKey: ["rooms-for-timetable"],
-    queryFn: () => roomsApi.list({ status: "ACTIVE", page_size: 100 }),
-  });
-
-  const { data: faculty } = useQuery({
-    queryKey: ["faculty-for-timetable", selectedDept],
-    queryFn: () => facultyApi.list({ department: selectedDept, page_size: 100 }),
-    enabled: !!selectedDept,
-  });
 
   const {
     register,
     handleSubmit,
-    setValue,
-    watch,
+    control,
     reset,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
@@ -121,13 +126,13 @@ function EntryFormModal({
           section: editTarget.section,
           subject: editTarget.subject,
           faculty: editTarget.faculty,
-          room: editTarget.room,
-          day: editTarget.day,
+          room:    editTarget.room,
+          day:     editTarget.day,
           start_time: editTarget.start_time.slice(0, 5),
-          end_time: editTarget.end_time.slice(0, 5),
-          notes: editTarget.notes,
+          end_time:   editTarget.end_time.slice(0, 5),
+          notes:      editTarget.notes,
         }
-      : { day: "MON" },
+      : { day: "MON", section: "", subject: "", faculty: "", room: "" },
   });
 
   const handleClose = () => {
@@ -159,22 +164,6 @@ function EntryFormModal({
     }
   };
 
-  const SelectField = ({ id, label, value, onChange, children, error }: {
-    id: string; label: string; value: string | undefined; onChange: (v: string) => void;
-    children: React.ReactNode; error?: string;
-  }) => (
-    <div className="space-y-1.5">
-      <Label className="text-slate-300 text-sm">{label}</Label>
-      <Select value={value || undefined} onValueChange={onChange}>
-        <SelectTrigger id={id} className="bg-white/5 border-white/10 text-white h-10 text-sm">
-          <SelectValue placeholder="Select…" />
-        </SelectTrigger>
-        <SelectContent className="z-[100]">{children}</SelectContent>
-      </Select>
-      {error && <p className="text-red-400 text-xs">{error}</p>}
-    </div>
-  );
-
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -195,37 +184,174 @@ function EntryFormModal({
         )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
-          {/* Department + Semester + Section cascade */}
+          {/* ── Row 1: Department → Semester → Section cascade ── */}
           <div className="grid grid-cols-3 gap-3">
-            <SelectField id="dept" label="Department *" value={selectedDept} onChange={(v) => { setSelectedDept(v); setSelectedSem(""); setValue("section", ""); }}>
-              {depts?.results.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
-            </SelectField>
-            <SelectField id="sem" label="Semester *" value={selectedSem} onChange={(v) => { setSelectedSem(v); setValue("section", ""); }}>
-              {semesters?.results.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-            </SelectField>
-            <SelectField id="section" label="Section *" value={watch("section")} onChange={(v) => setValue("section", v)} error={errors.section?.message}>
-              {sections?.results.map((s) => <SelectItem key={s.id} value={s.id}>Section {s.name}</SelectItem>)}
-            </SelectField>
+            {/* Department (local state, not in form) */}
+            <div className="space-y-1.5">
+              <Label className="text-slate-300 text-sm">Department *</Label>
+              <Select
+                value={selectedDept || undefined}
+                onValueChange={(v) => {
+                  setSelectedDept(v);
+                  setSelectedSem("");
+                }}
+              >
+                <SelectTrigger className="bg-white/5 border-white/10 text-white h-10 text-sm">
+                  <SelectValue placeholder="Select…" />
+                </SelectTrigger>
+                <SelectContent className="z-[200]">
+                  {depts?.results.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Semester (local state) */}
+            <div className="space-y-1.5">
+              <Label className="text-slate-300 text-sm">Semester *</Label>
+              <Select
+                value={selectedSem || undefined}
+                onValueChange={(v) => setSelectedSem(v)}
+                disabled={!selectedDept}
+              >
+                <SelectTrigger className="bg-white/5 border-white/10 text-white h-10 text-sm disabled:opacity-50">
+                  <SelectValue placeholder={selectedDept ? "Select…" : "Pick dept first"} />
+                </SelectTrigger>
+                <SelectContent className="z-[200]">
+                  {semesters?.results.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Section (form field) */}
+            <div className="space-y-1.5">
+              <Label className="text-slate-300 text-sm">Section *</Label>
+              <Controller
+                name="section"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value || undefined}
+                    onValueChange={field.onChange}
+                    disabled={!selectedSem}
+                  >
+                    <SelectTrigger className="bg-white/5 border-white/10 text-white h-10 text-sm disabled:opacity-50">
+                      <SelectValue placeholder={selectedSem ? "Select…" : "Pick semester first"} />
+                    </SelectTrigger>
+                    <SelectContent className="z-[200]">
+                      {sections?.results.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>Section {s.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {errors.section && <p className="text-red-400 text-xs">{errors.section.message}</p>}
+            </div>
           </div>
 
-          {/* Subject + Faculty + Room */}
+          {/* ── Row 2: Subject + Faculty + Room ── */}
           <div className="grid grid-cols-3 gap-3">
-            <SelectField id="subject" label="Subject *" value={watch("subject")} onChange={(v) => setValue("subject", v)} error={errors.subject?.message}>
-              {subjects?.results.map((s) => <SelectItem key={s.id} value={s.id}>{s.code} — {s.name}</SelectItem>)}
-            </SelectField>
-            <SelectField id="faculty" label="Faculty *" value={watch("faculty")} onChange={(v) => setValue("faculty", v)} error={errors.faculty?.message}>
-              {faculty?.results.map((f) => <SelectItem key={f.id} value={f.id}>{f.full_name}</SelectItem>)}
-            </SelectField>
-            <SelectField id="room" label="Room *" value={watch("room")} onChange={(v) => setValue("room", v)} error={errors.room?.message}>
-              {rooms?.results.map((r) => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
-            </SelectField>
+            {/* Subject (form field) */}
+            <div className="space-y-1.5">
+              <Label className="text-slate-300 text-sm">Subject *</Label>
+              <Controller
+                name="subject"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value || undefined}
+                    onValueChange={field.onChange}
+                    disabled={!selectedDept}
+                  >
+                    <SelectTrigger className="bg-white/5 border-white/10 text-white h-10 text-sm disabled:opacity-50">
+                      <SelectValue placeholder={selectedDept ? "Select…" : "Pick dept first"} />
+                    </SelectTrigger>
+                    <SelectContent className="z-[200]">
+                      {subjects?.results.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>{s.code} — {s.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {errors.subject && <p className="text-red-400 text-xs">{errors.subject.message}</p>}
+            </div>
+
+            {/* Faculty (form field) */}
+            <div className="space-y-1.5">
+              <Label className="text-slate-300 text-sm">Faculty *</Label>
+              <Controller
+                name="faculty"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value || undefined}
+                    onValueChange={field.onChange}
+                    disabled={!selectedDept}
+                  >
+                    <SelectTrigger className="bg-white/5 border-white/10 text-white h-10 text-sm disabled:opacity-50">
+                      <SelectValue placeholder={selectedDept ? "Select…" : "Pick dept first"} />
+                    </SelectTrigger>
+                    <SelectContent className="z-[200]">
+                      {faculty?.results.map((f) => (
+                        <SelectItem key={f.id} value={f.id}>{f.full_name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {errors.faculty && <p className="text-red-400 text-xs">{errors.faculty.message}</p>}
+            </div>
+
+            {/* Room (form field — always enabled) */}
+            <div className="space-y-1.5">
+              <Label className="text-slate-300 text-sm">Room *</Label>
+              <Controller
+                name="room"
+                control={control}
+                render={({ field }) => (
+                  <Select value={field.value || undefined} onValueChange={field.onChange}>
+                    <SelectTrigger className="bg-white/5 border-white/10 text-white h-10 text-sm">
+                      <SelectValue placeholder="Select…" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[200]">
+                      {rooms?.results.map((r) => (
+                        <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {errors.room && <p className="text-red-400 text-xs">{errors.room.message}</p>}
+            </div>
           </div>
 
-          {/* Day + Time */}
+          {/* ── Row 3: Day + Time ── */}
           <div className="grid grid-cols-3 gap-3">
-            <SelectField id="day" label="Day *" value={watch("day")} onChange={(v) => setValue("day", v as DayOfWeek)} error={errors.day?.message}>
-              {DAY_ORDER.map((d) => <SelectItem key={d} value={d}>{DAY_LABELS[d]}</SelectItem>)}
-            </SelectField>
+            <div className="space-y-1.5">
+              <Label className="text-slate-300 text-sm">Day *</Label>
+              <Controller
+                name="day"
+                control={control}
+                render={({ field }) => (
+                  <Select value={field.value || undefined} onValueChange={field.onChange}>
+                    <SelectTrigger className="bg-white/5 border-white/10 text-white h-10 text-sm">
+                      <SelectValue placeholder="Select…" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[200]">
+                      {DAY_ORDER.map((d) => (
+                        <SelectItem key={d} value={d}>{DAY_LABELS[d]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {errors.day && <p className="text-red-400 text-xs">{errors.day.message}</p>}
+            </div>
             <div className="space-y-1.5">
               <Label className="text-slate-300 text-sm">Start Time *</Label>
               <Input type="time" className="bg-white/5 border-white/10 text-white h-10" {...register("start_time")} />
@@ -264,6 +390,7 @@ function EntryFormModal({
     </Dialog>
   );
 }
+
 
 // ---- Main Page ----
 type ViewMode = "grid" | "list";
