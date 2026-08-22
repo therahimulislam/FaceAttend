@@ -10,7 +10,7 @@ import { z } from "zod";
 import {
   Plus, Search, RefreshCw, BookOpen, Edit2, Trash2, Loader2, CalendarDays,
 } from "lucide-react";
-import { semestersApi, type Semester } from "@/features/academics/api";
+import { semestersApi, academicYearsApi, type Semester } from "@/features/academics/api";
 import { departmentsApi } from "@/features/departments/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,13 +20,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const schema = z.object({
-  name:        z.string().min(1, "Name is required"),
-  department:  z.string().min(1, "Department is required"),
-  year:        z.coerce.number().int().min(1).max(8),
-  start_date:  z.string().optional(),
-  end_date:    z.string().optional(),
-  is_current:  z.boolean().default(false),
-  status:      z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
+  name:          z.string().min(1, "Name is required"),
+  department:    z.string().min(1, "Department is required"),
+  academic_year: z.string().min(1, "Academic Year is required"),
+  year:          z.coerce.number().int().min(1).max(8),
+  start_date:    z.string().optional(),
+  end_date:      z.string().optional(),
+  is_current:    z.boolean().default(false),
+  status:        z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
 });
 type FormData = z.infer<typeof schema>;
 
@@ -40,21 +41,26 @@ function SemesterFormModal({
     queryKey: ["departments", "all"],
     queryFn: () => departmentsApi.list({ status: "ACTIVE", page_size: 100 }),
   });
+  const { data: academicYears } = useQuery({
+    queryKey: ["academic-years", "all"],
+    queryFn: () => academicYearsApi.list(),
+  });
 
   const { register, handleSubmit, control, reset, formState: { errors, isSubmitting } } =
     useForm<FormData>({
       resolver: zodResolver(schema),
       defaultValues: editTarget
         ? {
-            name:       editTarget.name,
-            department: editTarget.department,
-            year:       editTarget.year,
-            start_date: editTarget.start_date?.slice(0, 10),
-            end_date:   editTarget.end_date?.slice(0, 10),
-            is_current: editTarget.is_current,
-            status:     editTarget.status as "ACTIVE" | "INACTIVE",
+            name:          editTarget.name,
+            department:    editTarget.department,
+            academic_year: editTarget.academic_year,
+            year:          editTarget.year,
+            start_date:    editTarget.start_date?.slice(0, 10),
+            end_date:      editTarget.end_date?.slice(0, 10),
+            is_current:    editTarget.is_current,
+            status:        editTarget.status as "ACTIVE" | "INACTIVE",
           }
-        : { year: 1, status: "ACTIVE", is_current: false },
+        : { year: 1, status: "ACTIVE", is_current: false, academic_year: "" },
     });
 
   const onSubmit = async (data: FormData) => {
@@ -75,20 +81,38 @@ function SemesterFormModal({
           <DialogTitle>{isEdit ? "Edit Semester" : "Create Semester"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
-          {/* Department */}
-          <div className="space-y-1.5">
-            <Label className="text-slate-300 text-sm">Department *</Label>
-            <Controller name="department" control={control} render={({ field }) => (
-              <Select value={field.value || undefined} onValueChange={field.onChange}>
-                <SelectTrigger className="bg-white/5 border-white/10 text-white h-10 text-sm">
-                  <SelectValue placeholder="Select department…" />
-                </SelectTrigger>
-                <SelectContent className="z-[200]">
-                  {depts?.results.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            )} />
-            {errors.department && <p className="text-red-400 text-xs">{errors.department.message}</p>}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Department */}
+            <div className="space-y-1.5">
+              <Label className="text-slate-300 text-sm">Department *</Label>
+              <Controller name="department" control={control} render={({ field }) => (
+                <Select value={field.value || undefined} onValueChange={field.onChange}>
+                  <SelectTrigger className="bg-white/5 border-white/10 text-white h-10 text-sm">
+                    <SelectValue placeholder="Select department…" />
+                  </SelectTrigger>
+                  <SelectContent className="z-[200]">
+                    {depts?.results.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )} />
+              {errors.department && <p className="text-red-400 text-xs">{errors.department.message}</p>}
+            </div>
+
+            {/* Academic Year */}
+            <div className="space-y-1.5">
+              <Label className="text-slate-300 text-sm">Academic Year *</Label>
+              <Controller name="academic_year" control={control} render={({ field }) => (
+                <Select value={field.value || undefined} onValueChange={field.onChange}>
+                  <SelectTrigger className="bg-white/5 border-white/10 text-white h-10 text-sm">
+                    <SelectValue placeholder="Select year…" />
+                  </SelectTrigger>
+                  <SelectContent className="z-[200]">
+                    {academicYears?.results.map((y) => <SelectItem key={y.id} value={y.id}>{y.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )} />
+              {errors.academic_year && <p className="text-red-400 text-xs">{errors.academic_year.message}</p>}
+            </div>
           </div>
 
           {/* Name + Year */}

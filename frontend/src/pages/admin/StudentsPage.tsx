@@ -70,7 +70,11 @@ function ApproveStudentModal({
 }) {
   const { control, handleSubmit, watch, formState: { errors } } = useForm<ApproveFormData>({
     resolver: zodResolver(approveSchema),
-    defaultValues: { department: "", semester: "", section: "" },
+    defaultValues: {
+      department: student.department || "",
+      semester:   student.semester || "",
+      section:    student.section || "",
+    },
   });
 
   const selectedDept = watch("department");
