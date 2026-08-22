@@ -106,7 +106,6 @@ export const router = createBrowserRouter([
         element: <AppLayout />,
         children: [
           { path: "/admin/dashboard",        element: <AdminDashboard /> },
-          { path: "/admin/students",         element: <StudentsPage /> },
           { path: "/admin/faculty",          element: <FacultyPage /> },
           { path: "/admin/departments",      element: <DepartmentsPage /> },
           { path: "/admin/academic-years",   element: <AcademicYearsPage /> },
@@ -119,7 +118,21 @@ export const router = createBrowserRouter([
           { path: "/admin/notifications",    element: <NotificationsPage /> },    // Phase 16
           { path: "/admin/audit-logs",       element: <AuditLogsPage /> },        // Phase 17
           { path: "/admin/ai-insights",      element: <AdminAIInsightsPage /> },  // Phase 18
-          { path: "/settings",              element: <SettingsPage /> },
+        ],
+      },
+    ],
+  },
+
+  // ---------------------------------------------------------------------------
+  // Admin + Faculty shared routes
+  // ---------------------------------------------------------------------------
+  {
+    element: <RequireAuth allowedRoles={["DEPARTMENT_ADMIN", "SUPER_ADMIN", "FACULTY"]} />,
+    children: [
+      {
+        element: <AppLayout />,
+        children: [
+          { path: "/admin/students", element: <StudentsPage /> },
         ],
       },
     ],
@@ -139,7 +152,6 @@ export const router = createBrowserRouter([
           { path: "/faculty/attendance",   element: <FacultyAttendancePage /> },
           { path: "/faculty/reports",      element: <ReportsPage /> },          // Phase 15
           { path: "/faculty/notifications",element: <NotificationsPage /> },    // Phase 16
-          { path: "/settings",             element: <SettingsPage /> },
         ],
       },
     ],
@@ -160,7 +172,21 @@ export const router = createBrowserRouter([
           { path: "/student/reports",      element: <ReportsPage /> },          // Phase 15
           { path: "/student/notifications",element: <NotificationsPage /> },    // Phase 16
           { path: "/student/ai-insights",  element: <StudentAIInsightsPage /> }, // Phase 18
-          { path: "/settings",             element: <SettingsPage /> },
+        ],
+      },
+    ],
+  },
+
+  // ---------------------------------------------------------------------------
+  // Shared routes (All authenticated users)
+  // ---------------------------------------------------------------------------
+  {
+    element: <RequireAuth />,
+    children: [
+      {
+        element: <AppLayout />,
+        children: [
+          { path: "/settings", element: <SettingsPage /> },
         ],
       },
     ],
