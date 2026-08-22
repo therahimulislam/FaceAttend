@@ -331,8 +331,8 @@ export default function FaceEnrollmentPage() {
 
   const enrollMutation = useMutation({
     mutationFn: (file: File) => faceApi.enroll(file),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["my-face-enrollment"] });
+    onSuccess: (data) => {
+      queryClient.setQueryData(["my-face-enrollment"], data);
       setSelectedFile(null);
       setShowForm(false);
       setSubmitError("");
@@ -347,7 +347,7 @@ export default function FaceEnrollmentPage() {
   const deleteMutation = useMutation({
     mutationFn: faceApi.deleteEnrollment,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["my-face-enrollment"] });
+      queryClient.setQueryData(["my-face-enrollment"], null);
     },
   });
 
