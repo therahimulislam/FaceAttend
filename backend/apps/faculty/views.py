@@ -7,7 +7,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.common.responses import success_response, created_response, error_response
 from apps.common.pagination import StandardPagination
-from apps.common.permissions import IsAdminUser, IsSuperAdminOrDeptAdmin
+from apps.common.permissions import IsAdminUser, IsSuperAdminOrDeptAdmin, IsFacultyOrAdmin
 from .models import Faculty
 from .serializers import FacultySerializer, CreateFacultySerializer
 
@@ -16,8 +16,9 @@ class FacultyViewSet(viewsets.ModelViewSet):
     """
     GET    /api/v1/faculty/        — list (admin/faculty)
     POST   /api/v1/faculty/        — create faculty user (admin)
-    GET    /api/v1/faculty/{id}/   — retrieve
-    PATCH  /api/v1/faculty/{id}/   — update
+    GET    /api/v1/faculty/me/     — logged-in faculty profile
+    GET    /api/v1/faculty/{id}/   — retrieve (admin/faculty)
+    PATCH  /api/v1/faculty/{id}/   — update (admin)
     DELETE /api/v1/faculty/{id}/   — deactivate (super admin)
     """
     queryset = Faculty.objects.select_related("user", "department").all()
@@ -30,11 +31,24 @@ class FacultyViewSet(viewsets.ModelViewSet):
     ordering = ["full_name"]
 
     def get_permissions(self):
-        if self.action == "create":
+        if self.action in ("create", "destroy", "update", "partial_update"):
             return [IsSuperAdminOrDeptAdmin()]
-        if self.action == "destroy":
-            return [IsSuperAdminOrDeptAdmin()]
-        return [IsAdminUser()]
+        if self.action == "me":
+            return [permissions.IsAuthenticated()]
+        return [IsFacultyOrAdmin()]
+
+    @action(detail=False, methods=["get"], permission_classes=[permissions.IsAuthenticated])
+    def me(self, request):
+        """GET /api/v1/faculty/me/ — returns logged-in faculty member's profile."""
+        try:
+            faculty = request.user.faculty_profile
+        except Exception:
+            return error_response(
+                message="No faculty profile found for this account.",
+                code="FACULTY_PROFILE_NOT_FOUND",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+        return success_response(data=FacultySerializer(faculty).data)
 
     def get_serializer_class(self):
         if self.action == "create":

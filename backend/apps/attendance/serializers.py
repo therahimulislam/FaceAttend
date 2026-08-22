@@ -103,6 +103,32 @@ class SessionDetailSerializer(SessionSummarySerializer):
 
 class CreateSessionSerializer(serializers.ModelSerializer):
     """Validates session creation. Accepts either a timetable_entry or manual fields."""
+    timetable_entry = serializers.PrimaryKeyRelatedField(
+        queryset=__import__("apps.timetable.models", fromlist=["TimetableEntry"]).TimetableEntry.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+    section = serializers.PrimaryKeyRelatedField(
+        queryset=__import__("apps.academics.models", fromlist=["Section"]).Section.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+    subject = serializers.PrimaryKeyRelatedField(
+        queryset=__import__("apps.academics.models", fromlist=["Subject"]).Subject.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+    faculty = serializers.PrimaryKeyRelatedField(
+        queryset=__import__("apps.faculty.models", fromlist=["Faculty"]).Faculty.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+    room = serializers.PrimaryKeyRelatedField(
+        queryset=__import__("apps.academics.models", fromlist=["Room"]).Room.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+    date = serializers.DateField(required=False, allow_null=True)
 
     class Meta:
         model = AttendanceSession
@@ -117,10 +143,10 @@ class CreateSessionSerializer(serializers.ModelSerializer):
         timetable_entry = attrs.get("timetable_entry")
         if timetable_entry:
             # Auto-fill from timetable entry
-            attrs.setdefault("section", timetable_entry.section)
-            attrs.setdefault("subject", timetable_entry.subject)
-            attrs.setdefault("faculty", timetable_entry.faculty)
-            attrs.setdefault("room", timetable_entry.room)
+            attrs["section"] = timetable_entry.section
+            attrs["subject"] = timetable_entry.subject
+            attrs["faculty"] = timetable_entry.faculty
+            attrs["room"] = timetable_entry.room
         else:
             # Manual: require section, subject, faculty
             for field in ("section", "subject", "faculty"):

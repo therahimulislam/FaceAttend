@@ -408,21 +408,20 @@ function CreateSessionModal({
   onCreate: (timetable_entry_id: string) => void;
   isLoading: boolean;
 }) {
-  const user = useAuthStore((s: any) => s.user);
-  const { data: facultyList } = useQuery({
-    queryKey: ["my-faculty-profile", user?.id],
-    queryFn: () => facultyApi.list({ page_size: 5 }),
-    enabled: !!user,
+  const { data: myFaculty, isLoading: isLoadingProfile } = useQuery({
+    queryKey: ["my-faculty-profile"],
+    queryFn: () => facultyApi.me(),
   });
-  const myFaculty = facultyList?.results.find((f: any) => f.email === user?.email);
 
   const { data: ttData, isLoading: isLoadingTt } = useQuery({
     queryKey: ["faculty-timetable", myFaculty?.id],
     queryFn: () => timetableApi.list({ faculty: myFaculty!.id, page_size: 100 }),
-    enabled: !!myFaculty,
+    enabled: !!myFaculty?.id,
   });
 
   const [selectedEntry, setSelectedEntry] = useState<string>("");
+
+  const isDataLoading = isLoadingProfile || isLoadingTt;
 
   return (
     <Dialog open={isOpen} onOpenChange={(o) => !o && onClose()}>
@@ -435,7 +434,7 @@ function CreateSessionModal({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          {isLoadingTt ? (
+          {isDataLoading ? (
             <div className="text-sm text-slate-400 flex items-center gap-2">
               <Loader2 className="animate-spin" size={14} /> Loading your timetable...
             </div>
@@ -500,10 +499,6 @@ export default function FacultyAttendancePage() {
   const createMutation = useMutation({
     mutationFn: (timetable_entry: string) => attendanceApi.createSession({ 
       timetable_entry,
-      section: "",
-      subject: "",
-      faculty: "",
-      date: new Date().toISOString().split('T')[0],
     }),
     onSuccess: (newSession) => {
       queryClient.invalidateQueries({ queryKey: ["attendance-today"] });

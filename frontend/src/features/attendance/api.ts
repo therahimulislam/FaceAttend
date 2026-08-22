@@ -75,14 +75,14 @@ export interface AttendanceRecord {
 }
 
 export interface CreateSessionPayload {
-  section: string;
-  subject: string;
-  faculty: string;
+  timetable_entry?: string;
+  section?: string;
+  subject?: string;
+  faculty?: string;
   room?: string;
-  date: string;
+  date?: string;
   duration_minutes?: number;
   notes?: string;
-  timetable_entry?: string;
 }
 
 export const attendanceApi = {

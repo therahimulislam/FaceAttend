@@ -10,29 +10,22 @@ import TimetableGrid from "@/components/timetable/TimetableGrid";
 import { useAuthStore } from "@/store/authStore";
 
 export default function FacultyTimetablePage() {
-  const user = useAuthStore((s) => s.user);
-
-  // Fetch faculty profile to get the Faculty UUID (different from user UUID)
-  const { data: facultyList } = useQuery({
-    queryKey: ["my-faculty-profile", user?.id],
-    queryFn: () => facultyApi.list({ page_size: 5 }),
-    enabled: !!user,
+  const { data: myFaculty, isLoading: isLoadingProfile } = useQuery({
+    queryKey: ["my-faculty-profile"],
+    queryFn: () => facultyApi.me(),
   });
 
-  // Use first result that matches this user — in production find by user_id filter
-  const myFaculty = facultyList?.results.find(
-    (f) => f.email === user?.email
-  );
-
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading: isLoadingTimetable, refetch } = useQuery({
     queryKey: ["faculty-timetable", myFaculty?.id],
     queryFn: () =>
       timetableApi.list({
         faculty: myFaculty!.id,
         page_size: 200,
       }),
-    enabled: !!myFaculty,
+    enabled: !!myFaculty?.id,
   });
+
+  const isLoading = isLoadingProfile || isLoadingTimetable;
 
   const entries = data?.results ?? [];
 

@@ -28,4 +28,8 @@ export const facultyApi = {
   delete: async (id: string): Promise<void> => {
     await api.delete(`/faculty/${id}/`);
   },
+  me: async (): Promise<Faculty> => {
+    const res = await api.get<{ success: boolean; data: Faculty }>("/faculty/me/");
+    return res.data.data;
+  },
 };
