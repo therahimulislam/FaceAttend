@@ -41,6 +41,9 @@ import StudentAttendancePage from "@/pages/student/AttendancePage";
 import FaceEnrollmentPage from "@/pages/student/FaceEnrollmentPage";
 import StudentAIInsightsPage from "@/pages/student/StudentAIInsightsPage";  // Phase 18
 
+// Shared pages
+import SettingsPage from "@/pages/SettingsPage";
+
 /** Redirect authenticated users away from auth pages */
 function GuestOnly() {
   const { isAuthenticated, user } = useAuthStore();
@@ -52,8 +55,6 @@ function GuestOnly() {
   return <Navigate to="/admin/dashboard" replace />;
 }
 
-import SettingsPage from "@/pages/SettingsPage";
-
 /** Require authentication + optional role check */
 function RequireAuth({ allowedRoles }: { allowedRoles?: UserRole[] }) {
   const { isAuthenticated, user } = useAuthStore();
@@ -62,15 +63,6 @@ function RequireAuth({ allowedRoles }: { allowedRoles?: UserRole[] }) {
     return <Navigate to="/unauthorized" replace />;
   }
   return <Outlet />;
-}
-
-// Shared authenticated routes (Settings)
-function SharedAuthRoutes() {
-  return (
-    <AppLayout>
-      <Outlet />
-    </AppLayout>
-  );
 }
 
 export const router = createBrowserRouter([
@@ -83,8 +75,8 @@ export const router = createBrowserRouter([
       {
         element: <AuthLayout />,
         children: [
-          { path: "/login", element: <LoginPage /> },
-          { path: "/register", element: <RegisterPage /> },
+          { path: "/login",           element: <LoginPage /> },
+          { path: "/register",        element: <RegisterPage /> },
           { path: "/forgot-password", element: <ForgotPasswordPage /> },
         ],
       },
@@ -110,17 +102,18 @@ export const router = createBrowserRouter([
       {
         element: <AppLayout />,
         children: [
-          { path: "/admin/dashboard",   element: <AdminDashboard /> },
-          { path: "/admin/students",    element: <StudentsPage /> },
-          { path: "/admin/faculty",     element: <FacultyPage /> },
-          { path: "/admin/departments", element: <DepartmentsPage /> },
-          { path: "/admin/subjects",    element: <SubjectsPage /> },
-          { path: "/admin/rooms",       element: <RoomsPage /> },
-          { path: "/admin/timetable",   element: <AdminTimetablePage /> },
-          { path: "/admin/reports",         element: <ReportsPage /> },  // Phase 15
-          { path: "/admin/notifications",    element: <NotificationsPage /> },  // Phase 16
-          { path: "/admin/audit-logs",       element: <AuditLogsPage /> },  // Phase 17
-          { path: "/admin/ai-insights",       element: <AdminAIInsightsPage /> },  // Phase 18
+          { path: "/admin/dashboard",        element: <AdminDashboard /> },
+          { path: "/admin/students",         element: <StudentsPage /> },
+          { path: "/admin/faculty",          element: <FacultyPage /> },
+          { path: "/admin/departments",      element: <DepartmentsPage /> },
+          { path: "/admin/subjects",         element: <SubjectsPage /> },
+          { path: "/admin/rooms",            element: <RoomsPage /> },
+          { path: "/admin/timetable",        element: <AdminTimetablePage /> },
+          { path: "/admin/reports",          element: <ReportsPage /> },          // Phase 15
+          { path: "/admin/notifications",    element: <NotificationsPage /> },    // Phase 16
+          { path: "/admin/audit-logs",       element: <AuditLogsPage /> },        // Phase 17
+          { path: "/admin/ai-insights",      element: <AdminAIInsightsPage /> },  // Phase 18
+          { path: "/settings",              element: <SettingsPage /> },
         ],
       },
     ],
@@ -135,11 +128,12 @@ export const router = createBrowserRouter([
       {
         element: <AppLayout />,
         children: [
-          { path: "/faculty/dashboard",  element: <FacultyDashboard /> },  // Phase 14
-          { path: "/faculty/timetable",  element: <FacultyTimetablePage /> },
-          { path: "/faculty/attendance", element: <FacultyAttendancePage /> },
-          { path: "/faculty/reports",        element: <ReportsPage /> },  // Phase 15
-          { path: "/faculty/notifications",   element: <NotificationsPage /> },  // Phase 16
+          { path: "/faculty/dashboard",    element: <FacultyDashboard /> },    // Phase 14
+          { path: "/faculty/timetable",    element: <FacultyTimetablePage /> },
+          { path: "/faculty/attendance",   element: <FacultyAttendancePage /> },
+          { path: "/faculty/reports",      element: <ReportsPage /> },          // Phase 15
+          { path: "/faculty/notifications",element: <NotificationsPage /> },    // Phase 16
+          { path: "/settings",             element: <SettingsPage /> },
         ],
       },
     ],
@@ -154,27 +148,13 @@ export const router = createBrowserRouter([
       {
         element: <AppLayout />,
         children: [
-          { path: "/student/dashboard",   element: <StudentDashboard /> },
+          { path: "/student/dashboard",    element: <StudentDashboard /> },
           { path: "/student/attendance",   element: <StudentAttendancePage /> },
           { path: "/student/face-enroll",  element: <FaceEnrollmentPage /> },
-          { path: "/student/reports",        element: <ReportsPage /> },  // Phase 15
-          { path: "/student/notifications",   element: <NotificationsPage /> },  // Phase 16
-          { path: "/student/ai-insights",      element: <StudentAIInsightsPage /> },  // Phase 18
-        ],
-      },
-    ],
-  },
-
-  // ---------------------------------------------------------------------------
-  // Shared authenticated routes
-  // ---------------------------------------------------------------------------
-  {
-    element: <RequireAuth />,
-    children: [
-      {
-        element: <SharedAuthRoutes />,
-        children: [
-          { path: "/settings", element: <SettingsPage /> },
+          { path: "/student/reports",      element: <ReportsPage /> },          // Phase 15
+          { path: "/student/notifications",element: <NotificationsPage /> },    // Phase 16
+          { path: "/student/ai-insights",  element: <StudentAIInsightsPage /> }, // Phase 18
+          { path: "/settings",             element: <SettingsPage /> },
         ],
       },
     ],
@@ -184,6 +164,6 @@ export const router = createBrowserRouter([
   // Catch-all / utility
   // ---------------------------------------------------------------------------
   { path: "/unauthorized", element: <UnauthorizedPage /> },
-  { path: "/", element: <Navigate to="/login" replace /> },
-  { path: "*", element: <NotFound /> },
+  { path: "/",             element: <Navigate to="/login" replace /> },
+  { path: "*",             element: <NotFound /> },
 ]);
