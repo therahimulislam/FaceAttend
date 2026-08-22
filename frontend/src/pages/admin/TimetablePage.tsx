@@ -200,7 +200,7 @@ function EntryFormModal({
                   <SelectValue placeholder="Select…" />
                 </SelectTrigger>
                 <SelectContent className="z-[200]">
-                  {depts?.results.map((d) => (
+                  {(depts?.results || []).map((d) => (
                     <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -219,7 +219,7 @@ function EntryFormModal({
                   <SelectValue placeholder={selectedDept ? "Select…" : "Pick dept first"} />
                 </SelectTrigger>
                 <SelectContent className="z-[200]">
-                  {semesters?.results.map((s) => (
+                  {(semesters?.results || []).map((s) => (
                     <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -242,7 +242,7 @@ function EntryFormModal({
                       <SelectValue placeholder={selectedSem ? "Select…" : "Pick semester first"} />
                     </SelectTrigger>
                     <SelectContent className="z-[200]">
-                      {sections?.results.map((s) => (
+                      {(sections?.results || []).map((s) => (
                         <SelectItem key={s.id} value={s.id}>Section {s.name}</SelectItem>
                       ))}
                     </SelectContent>
@@ -271,7 +271,7 @@ function EntryFormModal({
                       <SelectValue placeholder={selectedDept ? "Select…" : "Pick dept first"} />
                     </SelectTrigger>
                     <SelectContent className="z-[200]">
-                      {subjects?.results.map((s) => (
+                      {(subjects?.results || []).map((s) => (
                         <SelectItem key={s.id} value={s.id}>{s.code} — {s.name}</SelectItem>
                       ))}
                     </SelectContent>
@@ -297,7 +297,7 @@ function EntryFormModal({
                       <SelectValue placeholder={selectedDept ? "Select…" : "Pick dept first"} />
                     </SelectTrigger>
                     <SelectContent className="z-[200]">
-                      {faculty?.results.map((f) => (
+                      {(faculty?.results || []).map((f) => (
                         <SelectItem key={f.id} value={f.id}>{f.full_name}</SelectItem>
                       ))}
                     </SelectContent>
@@ -319,7 +319,7 @@ function EntryFormModal({
                       <SelectValue placeholder="Select…" />
                     </SelectTrigger>
                     <SelectContent className="z-[200]">
-                      {rooms?.results.map((r) => (
+                      {(rooms?.results || []).map((r) => (
                         <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
                       ))}
                     </SelectContent>
