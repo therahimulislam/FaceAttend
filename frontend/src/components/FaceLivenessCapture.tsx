@@ -54,6 +54,9 @@ export default function FaceLivenessCapture({ sessionCode, onVerified }: Props) 
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
   
+  // Use a ref to store the challenge ID so startCapture always has it immediately
+  const challengeIdRef = useRef<string>("");
+  
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -90,9 +93,12 @@ export default function FaceLivenessCapture({ sessionCode, onVerified }: Props) 
         );
         
         if (mounted) {
-          setChallenge(res.data.data);
+          const challengeData = res.data.data;
+          // Store in ref immediately — state update is async and would be empty when startCapture runs
+          challengeIdRef.current = challengeData.challenge_id;
+          setChallenge(challengeData);
           setState("ready");
-          startCapture(); // Auto start
+          startCapture(challengeData.challenge_id); // Pass ID directly
         }
       } catch (err: any) {
         if (mounted) {
@@ -150,10 +156,13 @@ export default function FaceLivenessCapture({ sessionCode, onVerified }: Props) 
     }
   }, [onVerified]);
 
-  const startCapture = useCallback(async () => {
+  const startCapture = useCallback(async (challengeId?: string) => {
     setState("capturing");
     framesRef.current = [];
     isBlinkingRef.current = false;
+
+    // Resolve challenge ID: prefer the directly-passed argument, then ref, then state
+    const resolvedChallengeId = challengeId || challengeIdRef.current || challenge?.challenge_id || "";
 
     let stream: MediaStream;
     try {
@@ -191,8 +200,9 @@ export default function FaceLivenessCapture({ sessionCode, onVerified }: Props) 
     }, 300);
 
     let lastVideoTime = -1;
+    let blinkSubmitted = false;
     const detectBlink = () => {
-      if (!videoRef.current || !globalFaceLandmarker || state === "analyzing" || state === "passed") return;
+      if (!videoRef.current || !globalFaceLandmarker || blinkSubmitted) return;
 
       const video = videoRef.current;
       if (video.currentTime !== lastVideoTime && video.readyState >= 2) {
@@ -210,9 +220,10 @@ export default function FaceLivenessCapture({ sessionCode, onVerified }: Props) 
           } else if (isBlinkingRef.current && ear > EAR_THRESHOLD) {
             // Blink complete!
             isBlinkingRef.current = false;
-            if (framesRef.current.length >= 3) {
+            if (framesRef.current.length >= 3 && resolvedChallengeId) {
+              blinkSubmitted = true;
               stopWebcam();
-              submitFrames(challenge?.challenge_id || "", [...framesRef.current]);
+              submitFrames(resolvedChallengeId, [...framesRef.current]);
               return;
             }
           }
@@ -226,7 +237,7 @@ export default function FaceLivenessCapture({ sessionCode, onVerified }: Props) 
       requestRef.current = requestAnimationFrame(detectBlink);
     }, 1000);
 
-  }, [challenge, submitFrames, stopWebcam, state]);
+  }, [challenge, submitFrames, stopWebcam]);
 
   return (
     <div className="rounded-xl bg-white/3 border border-white/8 p-4 space-y-4">
@@ -300,7 +311,23 @@ export default function FaceLivenessCapture({ sessionCode, onVerified }: Props) 
           <Button
             size="sm" variant="outline"
             className="w-full border-white/10 text-slate-300 hover:bg-white/5"
-            onClick={startCapture}
+            onClick={async () => {
+              // Must get a NEW challenge — old one is marked used on backend
+              setState("initializing");
+              try {
+                const res = await api.post<{ success: boolean; data: Challenge }>(
+                  "/face/liveness/challenge/",
+                  { session_code: sessionCode ?? "" },
+                );
+                const challengeData = res.data.data;
+                challengeIdRef.current = challengeData.challenge_id;
+                setChallenge(challengeData);
+                startCapture(challengeData.challenge_id);
+              } catch (err: any) {
+                setErrorMsg(err?.response?.data?.message ?? "Failed to get a new challenge.");
+                setState("error");
+              }
+            }}
           >
             <RefreshCw size={13} /> Try Again
           </Button>
