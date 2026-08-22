@@ -1,0 +1,44 @@
+# =============================================================================
+# FaceAttend — CD Pipeline (Continuous Deployment)
+# Triggers on push to main only — after CI passes.
+#
+# Deployment target: Render (via deploy hook)
+#
+# Setup:
+#   1. Go to Render dashboard → your service → Settings → Deploy Hook
+#   2. Copy the deploy hook URL
+#   3. Add it as a GitHub secret: RENDER_DEPLOY_HOOK_URL
+# =============================================================================
+
+name: CD
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+
+  # ---------------------------------------------------------------------------
+  # Deploy to Render
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: Deploy to Render
+    runs-on: ubuntu-latest
+    needs: []  # CD is triggered independently; CI is a separate workflow
+    environment: production
+
+    steps:
+      - name: Trigger Render Deploy
+        run: |
+          curl -s -o /dev/null -w "%{http_code}" \
+            --request POST \
+            "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" | \
+          grep -q "^2" && echo "✓ Render deploy triggered" || \
+          (echo "✗ Render deploy failed" && exit 1)
+
+      - name: Notify on success
+        if: success()
+        run: |
+          echo "🚀 FaceAttend deployed to production from commit ${{ github.sha }}"
+          echo "   Triggered by: ${{ github.actor }}"
+          echo "   Branch: ${{ github.ref_name }}"

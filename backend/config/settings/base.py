@@ -181,6 +181,20 @@ REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
     ],
+    # ---------------------------------------------------------------------------
+    # Rate Limiting (Phase 20)
+    # Applied globally; auth + face views apply stricter custom throttles.
+    # ---------------------------------------------------------------------------
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon":         "30/min",    # Unauthenticated requests
+        "user":         "200/min",   # Authenticated requests
+        "login":        "10/min",    # Stricter: auth endpoints
+        "face_verify":  "20/min",    # Stricter: face recognition
+    },
 }
 
 # ---------------------------------------------------------------------------
