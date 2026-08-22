@@ -25,10 +25,12 @@ import DepartmentsPage from "@/pages/admin/DepartmentsPage";
 import SubjectsPage from "@/pages/admin/SubjectsPage";
 import RoomsPage from "@/pages/admin/RoomsPage";
 import AdminTimetablePage from "@/pages/admin/TimetablePage";
-import ReportsPage from "@/pages/admin/ReportsPage";  // Phase 15
-import NotificationsPage from "@/pages/NotificationsPage";  // Phase 16
-import AuditLogsPage from "@/pages/admin/AuditLogsPage";  // Phase 17
-import AdminAIInsightsPage from "@/pages/admin/AdminAIInsightsPage";  // Phase 18
+import ReportsPage from "@/pages/admin/ReportsPage";          // Phase 15
+import NotificationsPage from "@/pages/NotificationsPage";    // Phase 16
+import AuditLogsPage from "@/pages/admin/AuditLogsPage";      // Phase 17
+import AdminAIInsightsPage from "@/pages/admin/AdminAIInsightsPage"; // Phase 18
+import SemestersPage from "@/pages/admin/SemestersPage";
+import SectionsPage from "@/pages/admin/SectionsPage";
 
 // Faculty pages
 import FacultyDashboard from "@/pages/faculty/FacultyDashboard";  // Phase 14
@@ -106,6 +108,8 @@ export const router = createBrowserRouter([
           { path: "/admin/students",         element: <StudentsPage /> },
           { path: "/admin/faculty",          element: <FacultyPage /> },
           { path: "/admin/departments",      element: <DepartmentsPage /> },
+          { path: "/admin/semesters",        element: <SemestersPage /> },
+          { path: "/admin/sections",         element: <SectionsPage /> },
           { path: "/admin/subjects",         element: <SubjectsPage /> },
           { path: "/admin/rooms",            element: <RoomsPage /> },
           { path: "/admin/timetable",        element: <AdminTimetablePage /> },

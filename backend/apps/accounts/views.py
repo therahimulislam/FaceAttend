@@ -263,3 +263,43 @@ class ResetPasswordView(APIView):
         return success_response(
             message="Password reset successful. You can now log in with your new password.",
         )
+
+
+class ChangePasswordView(APIView):
+    """
+    POST /api/v1/auth/change-password/
+    Allows any authenticated user to change their own password.
+    Body: { "current_password": "...", "new_password": "..." }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request):
+        user = request.user
+        current_password = request.data.get("current_password", "")
+        new_password = request.data.get("new_password", "")
+
+        if not current_password or not new_password:
+            return error_response(
+                message="Both current_password and new_password are required.",
+                code="VALIDATION_ERROR",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not user.check_password(current_password):
+            return error_response(
+                message="Current password is incorrect.",
+                code="WRONG_PASSWORD",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if len(new_password) < 8:
+            return error_response(
+                message="New password must be at least 8 characters.",
+                code="PASSWORD_TOO_SHORT",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.set_password(new_password)
+        user.save(update_fields=["password"])
+        return success_response(message="Password changed successfully.")
+

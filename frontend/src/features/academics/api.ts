@@ -47,13 +47,14 @@ export interface Semester {
   id: string;
   name: string;
   number: number | null;
+  year: number;
   department: string;
   department_name: string;
   academic_year: string;
   academic_year_label: string;
   start_date: string | null;
   end_date: string | null;
-  status: "UPCOMING" | "ACTIVE" | "COMPLETED";
+  status: "UPCOMING" | "ACTIVE" | "COMPLETED" | "INACTIVE";
   is_current: boolean;
   sections: Section[];
   created_at: string;
@@ -65,6 +66,7 @@ export interface Section {
   capacity: number;
   status: "ACTIVE" | "INACTIVE";
   semester: string;
+  semester_name?: string;
 }
 
 // ---- Subjects ----
@@ -105,19 +107,21 @@ export const roomsApi = {
   },
 };
 
-// ---- Semesters & Sections ----
 export const semestersApi = {
   list: async (params?: { department?: string; status?: string; is_current?: boolean; page_size?: number }): Promise<PaginatedResponse<Semester>> => {
     const res = await api.get<{ success: boolean; data: PaginatedResponse<Semester> }>("/academics/semesters/", { params });
     return res.data.data;
   },
   create: async (data: Partial<Semester>): Promise<Semester> => {
-    const res = await api.post<Semester>("/academics/semesters/", data);
-    return res.data;
+    const res = await api.post<{ success: boolean; data: Semester }>("/academics/semesters/", data);
+    return res.data.data;
   },
   update: async (id: string, data: Partial<Semester>): Promise<Semester> => {
-    const res = await api.patch<Semester>(`/academics/semesters/${id}/`, data);
-    return res.data;
+    const res = await api.patch<{ success: boolean; data: Semester }>(`/academics/semesters/${id}/`, data);
+    return res.data.data;
+  },
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/academics/semesters/${id}/`);
   },
 };
 
@@ -127,8 +131,15 @@ export const sectionsApi = {
     return res.data.data;
   },
   create: async (data: Partial<Section>): Promise<Section> => {
-    const res = await api.post<Section>("/academics/sections/", data);
-    return res.data;
+    const res = await api.post<{ success: boolean; data: Section }>("/academics/sections/", data);
+    return res.data.data;
+  },
+  update: async (id: string, data: Partial<Section>): Promise<Section> => {
+    const res = await api.patch<{ success: boolean; data: Section }>(`/academics/sections/${id}/`, data);
+    return res.data.data;
+  },
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/academics/sections/${id}/`);
   },
 };
 
