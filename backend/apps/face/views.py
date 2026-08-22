@@ -22,6 +22,7 @@ from rest_framework.views import APIView
 
 from apps.common.permissions import IsFacultyOrAdmin
 from apps.common.responses import success_response, error_response
+from apps.common.throttles import FaceVerifyRateThrottle  # Phase 20
 from .engine import face_engine, FaceEngineError
 from .models import FaceEnrollment, EnrollmentStatus
 from .serializers import (
@@ -42,6 +43,7 @@ class EnrollView(APIView):
     and saves the enrollment. Replaces any previous enrollment for this student.
     """
     permission_classes = [permissions.IsAuthenticated]
+    throttle_classes   = [FaceVerifyRateThrottle]  # Phase 20: 20/min per user
 
     def post(self, request):
         # Require student profile
