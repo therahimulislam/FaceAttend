@@ -154,3 +154,4 @@ services:
     region: oregon
     plan: free
     maxmemoryPolicy: allkeys-lru
+    ipAllowList: []  # Required by Render: empty list means only internal Render services can connect
