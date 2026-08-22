@@ -40,9 +40,9 @@ function AcademicYearFormModal({
     });
 
   const onSubmit = async (data: FormData) => {
-    // API doesn't have update/delete yet for AcademicYears (we didn't implement it in features/academics/api.ts)
-    // Wait, let's check if the API has create.
-    if (!isEdit) {
+    if (isEdit && editTarget) {
+      await academicYearsApi.update(editTarget.id, data);
+    } else {
       await academicYearsApi.create(data);
     }
     reset();
@@ -97,11 +97,21 @@ function AcademicYearFormModal({
 
 export default function AcademicYearsPage() {
   const [modalOpen, setModalOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<AcademicYear | undefined>();
+  const [deleteTarget, setDeleteTarget] = useState<AcademicYear | null>(null);
   const queryClient = useQueryClient();
 
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["academic-years", "all"],
     queryFn: () => academicYearsApi.list(),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => academicYearsApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["academic-years"] });
+      setDeleteTarget(null);
+    },
   });
 
   return (
@@ -117,7 +127,7 @@ export default function AcademicYearsPage() {
           <Button variant="outline" className="h-10 px-3 bg-white/5 border-white/10" onClick={() => refetch()} disabled={isFetching}>
             <RefreshCw size={18} className={isFetching ? "animate-spin text-slate-400" : "text-slate-400"} />
           </Button>
-          <Button className="h-10 flex-1 sm:flex-none" onClick={() => setModalOpen(true)}>
+          <Button className="h-10 flex-1 sm:flex-none" onClick={() => { setEditTarget(undefined); setModalOpen(true); }}>
             <Plus size={18} className="mr-2" /> New Year
           </Button>
         </div>
@@ -138,7 +148,7 @@ export default function AcademicYearsPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-white/8">
-                  {["Label", "Start Date", "End Date", "Status"].map((h) => (
+                  {["Label", "Start Date", "End Date", "Status", "Actions"].map((h) => (
                     <th key={h} className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
@@ -166,6 +176,16 @@ export default function AcademicYearsPage() {
                         <Badge variant="secondary">Past / Upcoming</Badge>
                       )}
                     </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-400 hover:text-white" onClick={() => { setEditTarget(y); setModalOpen(true); }}>
+                          <Edit2 size={15} />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-400 hover:text-red-400" onClick={() => setDeleteTarget(y)}>
+                          <Trash2 size={15} />
+                        </Button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -176,9 +196,33 @@ export default function AcademicYearsPage() {
 
       <AcademicYearFormModal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={() => { setModalOpen(false); setEditTarget(undefined); }}
+        editTarget={editTarget}
         onSaved={() => queryClient.invalidateQueries({ queryKey: ["academic-years"] })}
       />
+
+      {/* Delete Confirmation */}
+      <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete Academic Year?</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 text-slate-300 text-sm">
+            Are you sure you want to delete <span className="text-white font-medium">{deleteTarget?.label}</span>?
+            This will cascade and delete all associated semesters and sections. This action cannot be undone.
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+            >
+              {deleteMutation.isPending ? <Loader2 className="animate-spin" size={16} /> : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

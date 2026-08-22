@@ -152,4 +152,11 @@ export const academicYearsApi = {
     const res = await api.post<{ success: boolean; data: AcademicYear }>("/academics/years/", data);
     return res.data.data;
   },
+  update: async (id: string, data: Partial<AcademicYear>): Promise<AcademicYear> => {
+    const res = await api.patch<{ success: boolean; data: AcademicYear }>(`/academics/years/${id}/`, data);
+    return res.data.data;
+  },
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/academics/years/${id}/`);
+  },
 };
