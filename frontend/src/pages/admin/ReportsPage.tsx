@@ -294,11 +294,11 @@ export default function ReportsPage() {
     retry: false,
   });
 
-  // Load students for admin filtering
+  // Load students for admin/faculty filtering
   const { data: studentsList } = useQuery({
     queryKey: ["admin-students-all"],
     queryFn: () => studentsApi.list({ page_size: 200 }),
-    enabled: isAdmin && activeType === "student",
+    enabled: (isAdmin || isFaculty) && activeType === "student",
   });
 
   // Load departments for admin
@@ -373,7 +373,7 @@ export default function ReportsPage() {
           </div>
 
           {/* Entity-specific filter */}
-          {activeType === "student" && isAdmin && studentsList?.results && (
+          {activeType === "student" && (isAdmin || isFaculty) && studentsList?.results && (
             <div>
               <label className="text-slate-500 text-xs mb-1.5 block">Student</label>
               <select

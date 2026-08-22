@@ -88,9 +88,9 @@ class StudentReportView(APIView):
         # Resolve student
         student_id = request.query_params.get("student_id")
         if student_id:
-            if not (request.user.role in ["DEPARTMENT_ADMIN", "SUPER_ADMIN"]):
+            if not (request.user.role in ["DEPARTMENT_ADMIN", "SUPER_ADMIN", "FACULTY"]):
                 return error_response(
-                    message="Only admins can query other students.",
+                    message="Only faculty and admins can query other students.",
                     code="FORBIDDEN", status_code=403,
                 )
             from apps.students.models import Student

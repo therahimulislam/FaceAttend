@@ -12,7 +12,7 @@ from rest_framework.request import Request
 
 from apps.common.responses import success_response, error_response
 from apps.common.pagination import StandardPagination
-from apps.common.permissions import IsAdminUser, IsSuperAdminOrDeptAdmin, IsStudent
+from apps.common.permissions import IsAdminUser, IsSuperAdminOrDeptAdmin, IsStudent, IsFacultyOrAdmin
 from .models import Student, ApprovalStatus
 from .serializers import (
     StudentSerializer,
@@ -57,7 +57,7 @@ class StudentViewSet(viewsets.ModelViewSet):
     search_fields = ["full_name", "student_id", "user__email", "department_name"]
     ordering_fields = ["full_name", "student_id", "created_at", "approval_status"]
     ordering = ["-created_at"]
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsFacultyOrAdmin]
 
     @action(detail=False, methods=["get"], permission_classes=[permissions.IsAuthenticated])
     def me(self, request: Request):
