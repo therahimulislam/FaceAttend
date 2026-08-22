@@ -60,3 +60,17 @@ CHANNEL_LAYERS = {
         "BACKEND": "channels.layers.InMemoryChannelLayer",
     },
 }
+
+# ---------------------------------------------------------------------------
+# Phase 20 — Rate limiting: disabled in dev/test (throttles need Redis cache)
+# Production throttles are active via config/settings/production.py.
+# ---------------------------------------------------------------------------
+REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = []  # noqa: F405
+
+# Use local-memory cache in development (no Redis required)
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "faceattend-dev",
+    },
+}
